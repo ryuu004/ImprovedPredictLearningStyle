@@ -55,8 +55,9 @@ export default function ModelStatsPage() {
   }
 
   // Assuming a single model for now, you might want to iterate if multiple models are returned
+  // For overall display, we can use the first model's data or an aggregate if needed
   const firstModelKey = Object.keys(modelStats)[0];
-  const model = modelStats[firstModelKey];
+  const model = modelStats[firstModelKey]; // Still use first model for overall stats
 
   if (!model) {
     return <div className="min-h-screen bg-gray-900 text-white p-8 flex justify-center items-center text-2xl">No model data available.</div>;
@@ -193,7 +194,7 @@ export default function ModelStatsPage() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
             layout="vertical"
-            data={Object.entries(featureImportances[firstModelKey])
+            data={Object.entries(featureImportances['ACTIVE_VS_REFLECTIVE']) // Default to first model for overall feature importance
               .sort(([, a], [, b]) => b - a)
               .slice(0, 10) // Display top 10 features
               .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: (value * 100).toFixed(2) }))}
@@ -254,11 +255,22 @@ export default function ModelStatsPage() {
         )}
       </div>
 
-      {/* Model Comparison Section (Placeholder for side-by-side metric cards) */}
+      {/* Model Comparison Section */}
       <div className="bg-gray-800 rounded-lg p-8 shadow-lg mb-12">
         <h2 className="text-3xl font-semibold mb-8 text-center text-green-300">Model Comparison</h2>
-        <div className="h-48 flex items-center justify-center text-gray-500 text-xl">
-          Side-by-Side Metric Cards Placeholder
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {Object.keys(modelStats).map(target => (
+            <div key={target} className="bg-gray-700 rounded-lg p-6 shadow-md transform transition duration-300 hover:scale-105 hover:shadow-xl">
+              <h3 className="text-xl font-semibold mb-4 text-center text-green-200">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
+              <div className="space-y-2 text-sm">
+                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-green-400">{(modelStats[target].accuracy * 100).toFixed(1)}%</span></p>
+                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-blue-300">{(modelStats[target].precision * 100).toFixed(1)}%</span></p>
+                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-purple-300">{(modelStats[target].recall * 100).toFixed(1)}%</span></p>
+                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-pink-300">{(modelStats[target].f1_score * 100).toFixed(1)}%</span></p>
+                <p className="flex justify-between"><span>Dataset Size:</span> <span className="font-medium text-gray-300">{modelStats[target].dataset_size}</span></p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
