@@ -274,13 +274,6 @@ export default function ModelStatsPage() {
         </div>
       </div>
 
-      {/* Interactive Performance Trends Chart (Placeholder) */}
-      <div className="bg-gray-800 rounded-lg p-8 shadow-lg mb-12">
-        <h2 className="text-3xl font-semibold mb-8 text-center text-indigo-300">Performance Trends</h2>
-        <div className="h-64 flex items-center justify-center text-gray-500 text-xl">
-          Interactive Line Chart Placeholder (e.g., using Recharts, Chart.js)
-        </div>
-      </div>
 
       {/* Classification Report Table (Placeholder with enhanced styling) */}
       <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
