@@ -1,118 +1,79 @@
 from fastapi import FastAPI, HTTPException
-from pymongo import MongoClient
+from fastapi.middleware.cors import CORSMiddleware
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import pandas as pd
-import os
-from dotenv import load_dotenv
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from datetime import datetime
+from backend.dependencies import models, feature_names, feature_importances_dict, model_performance_metrics, categorical_features, target_labels, boolean_cols, numerical_features, db, client, students_collection
 
 app = FastAPI()
 
-# Load environment variables from .env.local
-load_dotenv(".env.local")
-
-# MongoDB connection
-MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGO_URI)
-db = client["ml_database"]
-students_collection = db["training_data"]
-
-# Global variables for models, feature names, and feature importances
-models = {}
-feature_names = None
-feature_importances_dict = {} # New global variable to store feature importances
-categorical_features = [
-    'note_taking_style',
-    'problem_solving_preference',
-    'response_speed_in_quizzes',
-    'year_level',
-    'academic_program'
-]
-target_labels = [
-    'active_vs_reflective',
-    'sensing_vs_intuitive',
-    'visual_vs_verbal',
-    'sequential_vs_global'
-]
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Allow frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
 
 async def train_model():
-    global models, feature_names
+    global models, feature_names, model_performance_metrics
     data = list(db["training_data"].find({}))
     if not data:
         print("No data found in MongoDB to train the models.")
         return
+    print(f"Found {len(data)} documents for training.")
 
     df = pd.DataFrame(data)
+    df.columns = df.columns.str.upper()
+    print(f"DataFrame columns after uppercase conversion: {df.columns.tolist()}")
 
     # Ensure all required columns exist
     required_columns = [
         'GPA',
-        'time_spent_on_videos',
-        'time_spent_on_text_materials',
-        'time_spent_on_interactive_activities',
-        'forum_participation_count',
-        'group_activity_participation',
-        'individual_activity_preference',
-        'preference_for_visual_materials',
-        'preference_for_textual_materials',
-        'quiz_attempts',
-        'time_to_complete_assignments',
-        'accuracy_in_detail_oriented_questions',
-        'accuracy_in_conceptual_questions',
-        'preference_for_examples',
-        'self_reflection_activity',
-        'video_pause_and_replay_count',
-        'quiz_review_frequency',
-        'skipped_content_ratio',
-        'login_frequency_per_week',
-        'average_study_session_length',
-        'active_vs_reflective',
-        'sensing_vs_intuitive',
-        'visual_vs_verbal',
-        'sequential_vs_global',
-        'note_taking_style',
-        'problem_solving_preference',
-        'response_speed_in_quizzes',
-        'year_level',
-        'academic_program'
+        'TIME_SPENT_ON_VIDEOS',
+        'TIME_SPENT_ON_TEXT_MATERIALS',
+        'TIME_SPENT_ON_INTERACTIVE_ACTIVITIES',
+        'FORUM_PARTICIPATION_COUNT',
+        'GROUP_ACTIVITY_PARTICIPATION',
+        'INDIVIDUAL_ACTIVITY_PREFERENCE',
+        'PREFERENCE_FOR_VISUAL_MATERIALS',
+        'PREFERENCE_FOR_TEXTUAL_MATERIALS',
+        'QUIZ_ATTEMPTS',
+        'TIME_TO_COMPLETE_ASSIGNMENTS',
+        'ACCURACY_IN_DETAIL_ORIENTED_QUESTIONS',
+        'ACCURACY_IN_CONCEPTUAL_QUESTIONS',
+        'PREFERENCE_FOR_EXAMPLES',
+        'SELF_REFLECTION_ACTIVITY',
+        'VIDEO_PAUSE_AND_REPLAY_COUNT',
+        'QUIZ_REVIEW_FREQUENCY',
+        'SKIPPED_CONTENT_RATIO',
+        'LOGIN_FREQUENCY_PER_WEEK',
+        'AVERAGE_STUDY_SESSION_LENGTH',
+        'ACTIVE_VS_REFLECTIVE',
+        'SENSING_VS_INTUITIVE',
+        'VISUAL_VS_VERBAL',
+        'SEQUENTIAL_VS_GLOBAL',
+        'NOTE_TAKING_STYLE',
+        'PROBLEM_SOLVING_PREFERENCE',
+        'RESPONSE_SPEED_IN_QUIZZES',
+        'YEAR_LEVEL',
+        'ACADEMIC_PROGRAM'
     ]
     for col in required_columns:
         if col not in df.columns:
             print(f"Warning: Missing required column for training: {col}. This column will be skipped.")
             # Optionally, you might want to raise an error or handle it differently
 
-    # Convert 'extracurriculars' to numerical (e.g., 0 for No, 1 for Yes)
     # Convert boolean fields to numerical (0 or 1)
-    boolean_cols = [
-        'preference_for_visual_materials',
-        'preference_for_textual_materials',
-        'preference_for_examples',
-        'self_reflection_activity'
-    ]
     for col in boolean_cols:
-        df[col] = df[col].apply(lambda x: 1 if x else 0)
-
-    numerical_features = [
-        'GPA',
-        'time_spent_on_videos',
-        'time_spent_on_text_materials',
-        'time_spent_on_interactive_activities',
-        'forum_participation_count',
-        'group_activity_participation',
-        'individual_activity_preference',
-        'quiz_attempts',
-        'time_to_complete_assignments',
-        'accuracy_in_detail_oriented_questions',
-        'accuracy_in_conceptual_questions',
-        'video_pause_and_replay_count',
-        'quiz_review_frequency',
-        'skipped_content_ratio',
-        'login_frequency_per_week',
-        'average_study_session_length'
-    ]
+        if col in df.columns: # Added check to avoid KeyError
+            df[col] = df[col].apply(lambda x: 1 if x else 0)
 
     # Preprocessing for categorical and numerical features
     preprocessor = ColumnTransformer(
@@ -157,16 +118,30 @@ async def train_model():
         models[target] = pipeline
         print(f"Model for {target} trained successfully.")
         
-        # Get feature names after one-hot encoding and numerical features
-        # This part needs to be done carefully as one-hot encoder changes column names
-        # Fit preprocessor to get feature names
+        # Calculate performance metrics
+        y_pred = pipeline.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+        recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+        f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+
+        # Store performance metrics
+        model_performance_metrics[target] = {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1,
+            "model_type": "Random Forest",
+            "last_trained": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "dataset_size": len(data),
+            "features_used": len(numerical_features) + len(categorical_features)
+        }
+
         preprocessor.fit(X)
         encoded_feature_names = preprocessor.named_transformers_['cat'].get_feature_names_out(categorical_features)
         
-        # Combine numerical and encoded categorical feature names
         current_feature_names = list(numerical_features) + list(encoded_feature_names)
         
-        # Store feature importances
         if hasattr(pipeline.named_steps['classifier'], 'feature_importances_'):
             importances = pipeline.named_steps['classifier'].feature_importances_
             feature_importances_dict[target] = dict(zip(current_feature_names, importances))
@@ -187,6 +162,10 @@ async def startup_event():
 @app.get("/")
 async def read_root():
     return {"message": "FastAPI backend is running"}
+
+from backend.routers import model_metrics # Include the new router
+
+app.include_router(model_metrics.router)
 
 @app.get("/db-status")
 async def get_db_status():
@@ -209,6 +188,14 @@ async def get_db_status():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MongoDB connection error: {e}")
+
+@app.get("/model-performance")
+async def get_model_performance():
+    if not models:
+        raise HTTPException(status_code=404, detail="Models not trained yet.")
+
+    return model_performance_metrics
+
 
 @app.get("/feature-importances")
 async def get_feature_importances():

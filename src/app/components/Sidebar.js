@@ -16,6 +16,11 @@ export default function Sidebar() {
               Dashboard
             </Link>
           </li>
+          <li>
+            <Link href="/model-stats" className="flex items-center p-2 text-base font-normal text-white rounded-lg hover:bg-subtle-gray-dark group">
+              Model Stats
+            </Link>
+          </li>
         </ul>
       </nav>
     </aside>

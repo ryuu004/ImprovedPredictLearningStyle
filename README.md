@@ -79,7 +79,7 @@ Ensure you have Python 3.8+ installed on your system.
 
 5.  **Run the Uvicorn server:**
     ```bash
-    uvicorn main:app --reload
+    uvicorn backend.main:app --reload
     ```
     The backend server will typically run on [http://127.0.0.1:8000](http://127.0.0.1:8000) or a similar address.
 
