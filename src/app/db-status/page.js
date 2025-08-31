@@ -1,22 +1,35 @@
-import clientPromise from '../lib/db';
+import clientPromise, { getTrainingDataCollection } from '../../lib/db';
 
 export default async function DbStatusPage() {
-  let isConnected = false;
+  let dbStatus = "Checking database connection...";
+  let collectionStatus = "Checking collection status...";
+
   try {
     await clientPromise;
-    isConnected = true;
+    dbStatus = "Database Connected";
   } catch (error) {
     console.error("Database connection failed:", error);
-    isConnected = false;
+    dbStatus = `Database Connection Failed: ${error.message}`;
+  }
+
+  try {
+    const collection = await getTrainingDataCollection();
+    if (collection) {
+      collectionStatus = "Collection 'training_data' in 'ml_database' is accessible.";
+    } else {
+      collectionStatus = "Failed to access 'training_data' collection.";
+    }
+  } catch (error) {
+    console.error("Collection access failed:", error);
+    collectionStatus = `Failed to access 'training_data' collection: ${error.message}`;
   }
 
   return (
     <div>
-      {isConnected ? (
-        <h1>Database Connected</h1>
-      ) : (
-        <h1>Database Connection Failed</h1>
-      )}
+      <h1>Database Status</h1>
+      <p>{dbStatus}</p>
+      <h1>Collection Status</h1>
+      <p>{collectionStatus}</p>
     </div>
   );
 }
