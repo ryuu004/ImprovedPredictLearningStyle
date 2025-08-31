@@ -34,6 +34,10 @@ export default function ModelStatsPage() {
         const importancesData = await importancesResponse.json();
         const confusionMatrixData = await confusionMatrixResponse.json(); // Parse confusion matrix data
 
+        console.log('Fetched modelStats:', JSON.stringify(statsData, null, 2));
+        console.log('Fetched featureImportances:', JSON.stringify(importancesData, null, 2));
+        console.log('Fetched confusionMatrices:', JSON.stringify(confusionMatrixData, null, 2));
+
         setModelStats(statsData);
         setFeatureImportances(importancesData);
         setConfusionMatrices(confusionMatrixData); // Set confusion matrix data
@@ -65,9 +69,21 @@ export default function ModelStatsPage() {
   }
 
   const calculateStrokeDashoffset = (value) => {
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) {
+      return 0; // Return 0 or a sensible default if the value is NaN
+    }
     const circumference = 2 * Math.PI * 40; // r=40 from SVG
-    const progress = value / 100;
+    const progress = numericValue / 100;
     return circumference * (1 - progress);
+  };
+
+  const formatPercentage = (value, decimals = 1) => {
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) {
+      return "N/A"; // Return "N/A" for display if NaN
+    }
+    return (numericValue * 100).toFixed(decimals); // Return string without '%'
   };
 
   return (
@@ -79,7 +95,7 @@ export default function ModelStatsPage() {
         <div className="bg-charcoal rounded-xl p-3 shadow-lg border border-transparent hover:border-accent-blue transition-all duration-300 ease-in-out">
           <h2 className="text-xl font-bold mb-3 text-accent-blue">Overall Accuracy</h2>
           <div className="text-center">
-            <p className="text-5xl font-extrabold text-accent-cyan">{(model.accuracy * 100).toFixed(1)}%</p>
+            <p className="text-5xl font-extrabold text-accent-cyan">{formatPercentage(model.test_accuracy)}%</p>
             <span className="text-xs text-gray-400 mt-2">Excellent Performance</span>
           </div>
         </div>
@@ -102,10 +118,10 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-subtle-gray-dark" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-accent-cyan" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(model.accuracy * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-accent-cyan" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-accent-cyan">
-                {(model.accuracy * 100).toFixed(0)}%
+                {formatPercentage(model.test_accuracy, 0)}%
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-2">Operational & Stable</p>
@@ -122,10 +138,10 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-subtle-gray-light" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-accent-cyan" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(model.accuracy * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-accent-cyan" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-accent-cyan">
-                {(model.accuracy * 100).toFixed(1)}%
+                {formatPercentage(model.test_accuracy)}%
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Accuracy</p>
@@ -136,10 +152,10 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-subtle-gray-light" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(model.precision * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.precision || 0) * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-accent-blue">
-                {(model.precision * 100).toFixed(1)}%
+                {formatPercentage(model.precision)}%
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Precision</p>
@@ -150,10 +166,10 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-subtle-gray-light" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(model.recall * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.recall || 0) * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-accent-blue">
-                {(model.recall * 100).toFixed(1)}%
+                {formatPercentage(model.recall)}%
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Recall</p>
@@ -164,10 +180,10 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-subtle-gray-light" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(model.f1_score * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-accent-blue" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.f1_score || 0) * 100)} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-accent-blue">
-                {(model.f1_score * 100).toFixed(1)}%
+                {formatPercentage(model.f1_score)}%
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">F1-Score</p>
@@ -183,7 +199,7 @@ export default function ModelStatsPage() {
             <LineChart
               data={Object.keys(modelStats).map(key => ({
                 name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                accuracy: (modelStats[key].accuracy * 100).toFixed(2)
+                accuracy: parseFloat(formatPercentage(modelStats[key].test_accuracy, 2)) || 0
               }))}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
@@ -211,7 +227,7 @@ export default function ModelStatsPage() {
               data={Object.entries(featureImportances['ACTIVE_VS_REFLECTIVE']) // Default to first model for overall feature importance
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10) // Display top 10 features
-                .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: (value * 100).toFixed(2) }))}
+                .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: parseFloat(formatPercentage(value, 2)) || 0 }))}
               margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
@@ -247,13 +263,13 @@ export default function ModelStatsPage() {
                   <tbody className="text-gray-300 text-sm font-light">
                     <tr className="border-b border-subtle-gray-dark bg-subtle-gray-dark hover:bg-subtle-gray-light transition-all duration-200 ease-in-out">
                       <td className="px-2 py-1 font-medium">Actual 0</td>
-                      <td className="px-2 py-1 bg-subtle-gray-dark text-accent-cyan font-bold">{confusionMatrices[target][0][0]}</td>
-                      <td className="px-2 py-1 bg-charcoal text-red-400 font-bold">{confusionMatrices[target][0][1]}</td>
+                      <td className="px-2 py-1 bg-subtle-gray-dark text-accent-cyan font-bold">{confusionMatrices[target].confusion_matrix[0][0]}</td>
+                      <td className="px-2 py-1 bg-charcoal text-red-400 font-bold">{confusionMatrices[target].confusion_matrix[0][1]}</td>
                     </tr>
                     <tr className="border-b border-subtle-gray-dark bg-charcoal hover:bg-subtle-gray-light transition-all duration-200 ease-in-out">
                       <td className="px-2 py-1 font-medium">Actual 1</td>
-                      <td className="px-2 py-1 bg-charcoal text-green-400 font-bold">{confusionMatrices[target][1][0]}</td>
-                      <td className="px-2 py-1 bg-subtle-gray-dark text-accent-cyan font-bold">{confusionMatrices[target][1][1]}</td>
+                      <td className="px-2 py-1 bg-charcoal text-green-400 font-bold">{confusionMatrices[target].confusion_matrix[1][0]}</td>
+                      <td className="px-2 py-1 bg-subtle-gray-dark text-accent-cyan font-bold">{confusionMatrices[target].confusion_matrix[1][1]}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -275,10 +291,10 @@ export default function ModelStatsPage() {
             <div key={target} className="bg-subtle-gray-dark rounded-lg p-2 shadow-md">
               <h3 className="text-md font-semibold mb-2 text-center text-accent-blue">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
               <div className="space-y-1 text-xs">
-                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-accent-cyan">{(modelStats[target].accuracy * 100).toFixed(1)}%</span></p>
-                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-accent-cyan">{(modelStats[target].precision * 100).toFixed(1)}%</span></p>
-                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-accent-cyan">{(modelStats[target].recall * 100).toFixed(1)}%</span></p>
-                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-accent-cyan">{(modelStats[target].f1_score * 100).toFixed(1)}%</span></p>
+                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-accent-cyan">{formatPercentage(modelStats[target].test_accuracy)}%</span></p>
+                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-accent-cyan">{formatPercentage(modelStats[target].precision)}%</span></p>
+                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-accent-cyan">{formatPercentage(modelStats[target].recall)}%</span></p>
+                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-accent-cyan">{formatPercentage(modelStats[target].f1_score)}%</span></p>
                 <p className="flex justify-between"><span>Dataset Size:</span> <span className="font-medium text-gray-300">{modelStats[target].dataset_size}</span></p>
               </div>
             </div>
@@ -305,9 +321,9 @@ export default function ModelStatsPage() {
               {Object.keys(modelStats).map((target, index) => (
                 <tr key={target} className={`border-b border-subtle-gray-dark ${index % 2 === 0 ? 'bg-subtle-gray-dark' : 'bg-charcoal'} hover:bg-subtle-gray-light transition-all duration-200 ease-in-out`}>
                   <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{(modelStats[target].precision).toFixed(2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{(modelStats[target].recall).toFixed(2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{(modelStats[target].f1_score).toFixed(2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].test_accuracy, 2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].recall, 2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].f1_score, 2)}</td>
                   <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{modelStats[target].dataset_size}</td>
                 </tr>
               ))}

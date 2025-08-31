@@ -1,6 +1,9 @@
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -18,10 +21,7 @@ feature_importances_dict = {}
 model_performance_metrics = {}
 categorical_features = [
     'NOTE_TAKING_STYLE',
-    'PROBLEM_SOLVING_PREFERENCE',
-    'RESPONSE_SPEED_IN_QUIZZES',
-    'YEAR_LEVEL',
-    'ACADEMIC_PROGRAM'
+    'PROBLEM_SOLVING_PREFERENCE'
 ]
 target_labels = [
     'ACTIVE_VS_REFLECTIVE',
@@ -29,12 +29,7 @@ target_labels = [
     'VISUAL_VS_VERBAL',
     'SEQUENTIAL_VS_GLOBAL'
 ]
-boolean_cols = [
-    'PREFERENCE_FOR_VISUAL_MATERIALS',
-    'PREFERENCE_FOR_TEXTUAL_MATERIALS',
-    'PREFERENCE_FOR_EXAMPLES',
-    'SELF_REFLECTION_ACTIVITY'
-]
+boolean_cols = []
 numerical_features = [
     'GPA',
     'TIME_SPENT_ON_VIDEOS',
@@ -53,3 +48,5 @@ numerical_features = [
     'LOGIN_FREQUENCY_PER_WEEK',
     'AVERAGE_STUDY_SESSION_LENGTH'
 ]
+
+# Define the preprocessor globally

@@ -4,3 +4,6 @@ pymongo
 scikit-learn
 pandas
 python-dotenv
+imbalanced-learn
+scikit-optimize
+joblib

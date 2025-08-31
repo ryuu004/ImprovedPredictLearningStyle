@@ -71,7 +71,10 @@ export async function POST(request) {
     };
 
     const sampleData = [];
-    for (let i = 1; i <= 40; i++) { // Generate 40 unique students
+    // Start ID from a large number to ensure uniqueness for new additions
+    // Assuming existing data has IDs up to a certain range.
+    // To add 100 *more* students, we generate 100 new entries.
+    for (let i = 10001; i <= 10100; i++) { // Generate 100 new unique students
       sampleData.push(generateStudentData(i));
     }
 

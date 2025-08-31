@@ -1,41 +1,101 @@
 from fastapi import APIRouter, HTTPException
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 from backend.dependencies import models, target_labels, db, boolean_cols, numerical_features, categorical_features
 import pandas as pd
+import numpy as np
 
 router = APIRouter()
 
 @router.get("/confusion-matrix")
 async def get_confusion_matrix():
+    print("DEBUG: Entering get_confusion_matrix function.")
     if not models:
+        print("DEBUG: Models not trained yet. Raising 404.")
         raise HTTPException(status_code=404, detail="Models not trained yet.")
     
-    confusion_matrices = {}
+    metrics = {}
+    print("DEBUG: Fetching training data from MongoDB.")
     data = list(db["training_data"].find({}))
     if not data:
+        print("DEBUG: No data found in MongoDB. Raising 404.")
         raise HTTPException(status_code=404, detail="No data found in MongoDB to train the models.")
 
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(data).copy() # Explicitly copy to avoid SettingWithCopyWarning
     df.columns = df.columns.str.upper()
+    # Handle duplicate columns by keeping the first occurrence
+    print(f"DEBUG: Found {len(data)} documents. Processing DataFrame.")
+    df = pd.DataFrame(data).copy() # Explicitly copy to avoid SettingWithCopyWarning
+    df.columns = df.columns.str.upper()
+    # Handle duplicate columns by keeping the first occurrence
+    df = df.loc[:,~df.columns.duplicated()].copy()
 
     # Convert boolean fields to numerical (0 or 1)
+    print("DEBUG: Converting boolean columns to numerical.")
     for col in boolean_cols:
         if col in df.columns:
-            df[col] = df[col].apply(lambda x: 1 if x else 0)
+            df.loc[:, col] = df[col].astype(int)
 
-    X = df[numerical_features + categorical_features]
+    print("DEBUG: Processing numerical features.")
+    # Numerical feature imputation is now handled by the preprocessor_obj
+    # Ensure numerical columns are numeric before passing to preprocessor,
+    # but let SimpleImputer handle NaNs.
     for col in numerical_features:
-        X[col] = pd.to_numeric(X[col], errors='coerce')
-    X.dropna(inplace=True)
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        # If the column is missing, SimpleImputer in preprocessor_obj will handle it
+        # by filling with the mean from training data, so no need for manual 0 fill here.
+        # If a column is entirely missing from the dataframe, preprocessor_obj will handle
+        # it by adding a column of zeros if 'passthrough' or mean if SimpleImputer.
+        # No need for explicit 'df[col] = 0' here.
 
+    print("DEBUG: Processing categorical features.")
+    # Explicitly convert categorical features to string, filling NaNs with 'missing_category'
+    for col in categorical_features:
+        if col in df.columns:
+            df[col] = df[col].astype(str).fillna('missing_category')
+        else:
+            # Add missing categorical columns with default 'missing_category'
+            df[col] = 'missing_category'
+            
+    # Define features (X) by selecting numerical and categorical features
+    # This should be done *after* the cleaning steps above
+    print(f"DEBUG (model_metrics): df columns before X selection: {df.columns.tolist()}")
+    X = df[numerical_features + categorical_features]
+
+    # Drop rows with NaN values after selecting features
+    # This .dropna() should now work correctly as strings in numerical columns are handled
+    print("DEBUG: Dropping rows with NaN values from X.")
+    X = X.dropna()
+    print(f"DEBUG: X shape after dropping NaNs: {X.shape}")
+
+    print("DEBUG: Iterating through target labels for model predictions.")
     for target in target_labels:
         if target in models:
+            print(f"DEBUG: Processing target: {target}")
             y_true = df.loc[X.index, target].astype('category').cat.codes # Ensure y_true is numerical
-            y_pred = models[target].predict(X) # Predict on the full dataset for confusion matrix
+            
+            # Apply the preprocessor to X before prediction
+            print(f"DEBUG: Predicting for target {target}.")
+            y_pred = models[target].predict(X) # Predict on the original dataset, pipeline handles preprocessing
+            
+            # Calculate Confusion Matrix
+            print(f"DEBUG: Calculating confusion matrix for {target}.")
             cm = confusion_matrix(y_true, y_pred)
-            confusion_matrices[target] = cm.tolist()
+            
+            # Calculate Accuracy
+            print(f"DEBUG: Calculating accuracy for {target}.")
+            accuracy = accuracy_score(y_true, y_pred)
+            
+            metrics[target] = {
+                "confusion_matrix": cm.tolist(),
+                "accuracy": accuracy
+            }
+        else:
+            print(f"DEBUG: Model not found for target: {target}. Skipping.")
     
-    if not confusion_matrices:
-        raise HTTPException(status_code=404, detail="Confusion matrices not calculated yet.")
+    if not metrics:
+        print("DEBUG: No metrics calculated. Raising 404.")
+        raise HTTPException(status_code=404, detail="Metrics not calculated yet.")
 
-    return confusion_matrices
+    print("DEBUG: Returning calculated metrics.")
+    return metrics

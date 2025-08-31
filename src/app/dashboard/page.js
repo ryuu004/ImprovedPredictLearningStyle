@@ -242,7 +242,7 @@ export default function DashboardPage() {
            </thead>
            <tbody>
              {filteredStudents.map((student, index) => (
-               <tr key={student.student_id} className={`border-b border-subtle-gray-dark ${index % 2 === 0 ? 'bg-subtle-gray-dark' : 'bg-charcoal'} hover:bg-subtle-gray-light transition-all duration-200 ease-in-out`}>
+               <tr key={`${student.student_id}-${index}`} className={`border-b border-subtle-gray-dark ${index % 2 === 0 ? 'bg-subtle-gray-dark' : 'bg-charcoal'} hover:bg-subtle-gray-light transition-all duration-200 ease-in-out`}>
                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{student.student_id}</td>
                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{student.age}</td>
                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{student.gender}</td>
