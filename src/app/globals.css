@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollbar for Webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937; /* Charcoal, matching the table background */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D333B; /* Subtle gray, matching subtle-gray-light */
+  border-radius: 10px;
+  border: 2px solid #1f2937; /* Border to match track background */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a414b; /* Slightly lighter on hover */
+}
+
+/* For Firefox (less customization options) */
+/* Requires setting overflow on the element, not global scrollbar */
+/* For example, on the table wrapper div, add: */
+/* scrollbar-width: thin; */
+/* scrollbar-color: #2D333B #1A202C; */

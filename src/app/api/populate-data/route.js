@@ -2,188 +2,78 @@ import { insertTrainingData } from '../../../lib/db';
 
 export async function POST(request) {
   try {
-    const sampleData = [
-      {
-        student_id: "S001",
-        age: 20,
-        gender: "Male",
-        academic_program: "IT",
-        year_level: "3rd year",
-        GPA: 3.5,
-        time_spent_on_videos: 10,
-        time_spent_on_text_materials: 5,
-        time_spent_on_interactive_activities: 8,
-        forum_participation_count: 12,
-        group_activity_participation: 7,
-        individual_activity_preference: 3,
-        note_taking_style: "typed",
-        preference_for_visual_materials: true,
-        preference_for_textual_materials: false,
-        quiz_attempts: 5,
-        time_to_complete_assignments: 2,
-        learning_path_navigation: "linear",
-        problem_solving_preference: "step-by-step",
-        response_speed_in_quizzes: "fast",
-        accuracy_in_detail_oriented_questions: 90,
-        accuracy_in_conceptual_questions: 85,
-        preference_for_examples: true,
-        self_reflection_activity: true,
-        clickstream_sequence: ["video1", "quiz1", "text1"],
-        video_pause_and_replay_count: 15,
-        quiz_review_frequency: 3,
-        skipped_content_ratio: 0.1,
-        login_frequency_per_week: 5,
-        average_study_session_length: 60,
-        active_vs_reflective: "active",
-        sensing_vs_intuitive: "sensing",
-        visual_vs_verbal: "visual",
-        sequential_vs_global: "sequential",
-      },
-      {
-        student_id: "S002",
-        age: 21,
-        gender: "Female",
-        academic_program: "Engineering",
-        year_level: "4th year",
-        GPA: 3.8,
-        time_spent_on_videos: 7,
-        time_spent_on_text_materials: 12,
-        time_spent_on_interactive_activities: 6,
-        forum_participation_count: 8,
-        group_activity_participation: 10,
-        individual_activity_preference: 8,
-        note_taking_style: "handwritten",
-        preference_for_visual_materials: false,
-        preference_for_textual_materials: true,
-        quiz_attempts: 3,
-        time_to_complete_assignments: 4,
-        learning_path_navigation: "jumping around modules",
-        problem_solving_preference: "holistic solution approach",
-        response_speed_in_quizzes: "slow",
-        accuracy_in_detail_oriented_questions: 80,
-        accuracy_in_conceptual_questions: 95,
-        preference_for_examples: false,
-        self_reflection_activity: false,
-        clickstream_sequence: ["text2", "forum1", "video2"],
-        video_pause_and_replay_count: 5,
-        quiz_review_frequency: 1,
-        skipped_content_ratio: 0.2,
-        login_frequency_per_week: 3,
-        average_study_session_length: 90,
-        active_vs_reflective: "reflective",
-        sensing_vs_intuitive: "intuitive",
-        visual_vs_verbal: "verbal",
-        sequential_vs_global: "global",
-      },
-      {
-        student_id: "S003",
-        age: 19,
-        gender: "Male",
-        academic_program: "Business",
-        year_level: "2nd year",
-        GPA: 3.2,
-        time_spent_on_videos: 12,
-        time_spent_on_text_materials: 3,
-        time_spent_on_interactive_activities: 10,
-        forum_participation_count: 15,
-        group_activity_participation: 5,
-        individual_activity_preference: 6,
-        note_taking_style: "none",
-        preference_for_visual_materials: true,
-        preference_for_textual_materials: false,
-        quiz_attempts: 7,
-        time_to_complete_assignments: 3,
-        learning_path_navigation: "linear",
-        problem_solving_preference: "step-by-step",
-        response_speed_in_quizzes: "fast",
-        accuracy_in_detail_oriented_questions: 88,
-        accuracy_in_conceptual_questions: 80,
-        preference_for_examples: true,
-        self_reflection_activity: true,
-        clickstream_sequence: ["video3", "interactive1", "quiz3"],
-        video_pause_and_replay_count: 20,
-        quiz_review_frequency: 4,
-        skipped_content_ratio: 0.05,
-        login_frequency_per_week: 6,
-        average_study_session_length: 45,
-        active_vs_reflective: "active",
-        sensing_vs_intuitive: "sensing",
-        visual_vs_verbal: "visual",
-        sequential_vs_global: "sequential",
-      },
-      {
-        student_id: "S004",
-        age: 22,
-        gender: "Female",
-        academic_program: "IT",
-        year_level: "4th year",
-        GPA: 3.9,
-        time_spent_on_videos: 8,
-        time_spent_on_text_materials: 7,
-        time_spent_on_interactive_activities: 9,
-        forum_participation_count: 10,
-        group_activity_participation: 12,
-        individual_activity_preference: 7,
-        note_taking_style: "typed",
-        preference_for_visual_materials: true,
-        preference_for_textual_materials: true,
-        quiz_attempts: 6,
-        time_to_complete_assignments: 2,
-        learning_path_navigation: "linear",
-        problem_solving_preference: "holistic solution approach",
-        response_speed_in_quizzes: "fast",
-        accuracy_in_detail_oriented_questions: 92,
-        accuracy_in_conceptual_questions: 90,
-        preference_for_examples: true,
-        self_reflection_activity: false,
-        clickstream_sequence: ["quiz4", "video4", "text3"],
-        video_pause_and_replay_count: 10,
-        quiz_review_frequency: 2,
-        skipped_content_ratio: 0.15,
-        login_frequency_per_week: 4,
-        average_study_session_length: 75,
-        active_vs_reflective: "active",
-        sensing_vs_intuitive: "intuitive",
-        visual_vs_verbal: "visual",
-        sequential_vs_global: "global",
-      },
-      {
-        student_id: "S005",
-        age: 20,
-        gender: "Male",
-        academic_program: "Engineering",
-        year_level: "3rd year",
-        GPA: 3.6,
-        time_spent_on_videos: 6,
-        time_spent_on_text_materials: 9,
-        time_spent_on_interactive_activities: 7,
-        forum_participation_count: 9,
-        group_activity_participation: 8,
-        individual_activity_preference: 5,
-        note_taking_style: "handwritten",
-        preference_for_visual_materials: false,
-        preference_for_textual_materials: true,
-        quiz_attempts: 4,
-        time_to_complete_assignments: 3,
-        learning_path_navigation: "jumping around modules",
-        problem_solving_preference: "step-by-step",
-        response_speed_in_quizzes: "slow",
-        accuracy_in_detail_oriented_questions: 85,
-        accuracy_in_conceptual_questions: 88,
-        preference_for_examples: false,
-        self_reflection_activity: true,
-        clickstream_sequence: ["text4", "quiz5", "interactive2"],
-        video_pause_and_replay_count: 8,
-        quiz_review_frequency: 2,
-        skipped_content_ratio: 0.1,
-        login_frequency_per_week: 5,
-        average_study_session_length: 50,
-        active_vs_reflective: "reflective",
-        sensing_vs_intuitive: "sensing",
-        visual_vs_verbal: "verbal",
-        sequential_vs_global: "sequential",
-      },
-    ];
+    const generateRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const generateRandomFloat = (min, max) => (Math.random() * (max - min) + min).toFixed(1);
+
+    const learningStyles = {
+      active_vs_reflective: ['active', 'reflective'],
+      sensing_vs_intuitive: ['sensing', 'intuitive'],
+      visual_vs_verbal: ['visual', 'verbal'],
+      sequential_vs_global: ['sequential', 'global'],
+    };
+
+    const noteTakingStyles = ['typed', 'handwritten', 'none'];
+    const problemSolvingPreferences = ['step-by-step', 'holistic solution approach'];
+    const responseSpeed = ['fast', 'slow'];
+    const academicPrograms = ['IT', 'Engineering', 'Business', 'Arts', 'Science'];
+    const yearLevels = ['1st year', '2nd year', '3rd year', '4th year'];
+    const genders = ['Male', 'Female', 'Other'];
+
+    const generateStudentData = (id) => {
+      const student_id = `S${String(id).padStart(5, '0')}`; // Ensure uniqueness with a larger pad
+      const age = generateRandomInt(18, 25);
+      const gender = genders[generateRandomInt(0, genders.length - 1)];
+      const academic_program = academicPrograms[generateRandomInt(0, academicPrograms.length - 1)];
+      const year_level = yearLevels[generateRandomInt(0, yearLevels.length - 1)];
+      const GPA = parseFloat(generateRandomFloat(2.5, 4.0));
+      const time_spent_on_videos = generateRandomInt(1, 20);
+      const time_spent_on_text_materials = generateRandomInt(1, 20);
+      const time_spent_on_interactive_activities = generateRandomInt(1, 20);
+      const forum_participation_count = generateRandomInt(0, 30);
+      const group_activity_participation = generateRandomInt(0, 15);
+      const individual_activity_preference = generateRandomInt(1, 10);
+      const note_taking_style = noteTakingStyles[generateRandomInt(0, noteTakingStyles.length - 1)];
+      const preference_for_visual_materials = Math.random() > 0.5;
+      const preference_for_textual_materials = Math.random() > 0.5;
+      const quiz_attempts = generateRandomInt(1, 10);
+      const time_to_complete_assignments = generateRandomInt(1, 7);
+      const learning_path_navigation = Math.random() > 0.5 ? 'linear' : 'jumping around modules';
+      const problem_solving_preference = problemSolvingPreferences[generateRandomInt(0, problemSolvingPreferences.length - 1)];
+      const response_speed_in_quizzes = responseSpeed[generateRandomInt(0, responseSpeed.length - 1)];
+      const accuracy_in_detail_oriented_questions = generateRandomInt(60, 100);
+      const accuracy_in_conceptual_questions = generateRandomInt(60, 100);
+      const preference_for_examples = Math.random() > 0.5;
+      const self_reflection_activity = Math.random() > 0.5;
+      const clickstream_sequence = [`resource${generateRandomInt(1, 5)}`, `quiz${generateRandomInt(1, 5)}`, `forum${generateRandomInt(1, 5)}`];
+      const video_pause_and_replay_count = generateRandomInt(0, 30);
+      const quiz_review_frequency = generateRandomInt(0, 5);
+      const skipped_content_ratio = parseFloat(generateRandomFloat(0, 0.5));
+      const login_frequency_per_week = generateRandomInt(1, 7);
+      const average_study_session_length = generateRandomInt(30, 120);
+      const active_vs_reflective = learningStyles.active_vs_reflective[generateRandomInt(0, 1)];
+      const sensing_vs_intuitive = learningStyles.sensing_vs_intuitive[generateRandomInt(0, 1)];
+      const visual_vs_verbal = learningStyles.visual_vs_verbal[generateRandomInt(0, 1)];
+      const sequential_vs_global = learningStyles.sequential_vs_global[generateRandomInt(0, 1)];
+
+      return {
+        student_id, age, gender, academic_program, year_level, GPA,
+        time_spent_on_videos, time_spent_on_text_materials, time_spent_on_interactive_activities,
+        forum_participation_count, group_activity_participation, individual_activity_preference,
+        note_taking_style, preference_for_visual_materials, preference_for_textual_materials,
+        quiz_attempts, time_to_complete_assignments, learning_path_navigation,
+        problem_solving_preference, response_speed_in_quizzes,
+        accuracy_in_detail_oriented_questions, accuracy_in_conceptual_questions,
+        preference_for_examples, self_reflection_activity, clickstream_sequence,
+        video_pause_and_replay_count, quiz_review_frequency, skipped_content_ratio,
+        login_frequency_per_week, average_study_session_length,
+        active_vs_reflective, sensing_vs_intuitive, visual_vs_verbal, sequential_vs_global,
+      };
+    };
+
+    const sampleData = [];
+    for (let i = 1; i <= 40; i++) { // Generate 40 unique students
+      sampleData.push(generateStudentData(i));
+    }
 
     const result = await insertTrainingData(sampleData);
     return new Response(JSON.stringify({ message: "Data populated successfully", insertedCount: result.insertedCount }), {
