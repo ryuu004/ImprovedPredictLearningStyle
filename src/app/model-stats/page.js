@@ -73,7 +73,6 @@ export default function ModelStatsPage() {
   return (
     <DashboardLayout>
       <div className="bg-dark-navy text-white p-2 min-h-screen overflow-y-auto">
-        <h1 className="text-xl font-bold mb-3 text-accent-blue">Model Performance Dashboard</h1>
 
       {/* Model Overview Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">

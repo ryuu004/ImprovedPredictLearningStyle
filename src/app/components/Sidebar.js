@@ -13,7 +13,7 @@ export default function Sidebar() {
           </li>
           <li>
             <Link href="/dashboard" className="flex items-center p-2 text-base font-normal text-white rounded-lg hover:bg-subtle-gray-dark group">
-              Dashboard
+              Student Data
             </Link>
           </li>
           <li>
