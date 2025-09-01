@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler # Import StandardScaler
+from sklearn.impute import SimpleImputer # Import SimpleImputer
 from sklearn.model_selection import train_test_split
 from imblearn.pipeline import Pipeline as ImblearnPipeline # Renamed to avoid conflict
 import pandas as pd
@@ -20,9 +21,15 @@ from skopt.space import Real, Categorical, Integer # Import space definitions
 import os # Import os module for path operations
 
 # Define the preprocessor globally
+# Numerical features will be imputed with the mean and then scaled
+numerical_transformer = ImblearnPipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean')),
+    ('scaler', StandardScaler())
+])
+
 preprocessor_obj = ColumnTransformer(
     transformers=[
-        ('num', 'passthrough', numerical_features),
+        ('num', numerical_transformer, numerical_features), # Use the numerical_transformer
         ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
     ],
     remainder='drop'
@@ -184,51 +191,179 @@ async def train_model():
             print(f"Skipping training for {target}: Not enough unique labels ({unique_labels}) for classification.")
             continue
 
-        print(f"DEBUG: Before training for target {target}:")
-        print(f"DEBUG: y.dtype: {y.dtype}")
-        print(f"DEBUG: y.unique(): {y.unique()}")
-        print(f"DEBUG: y.value_counts():\n{y.value_counts()}")
-        print(f"DEBUG: y.isnull().sum(): {y.isnull().sum()}")
+        print(f"DEBUG: X shape before SKF split: {X.shape}")
+        print(f"DEBUG: y shape before SKF split: {y.shape}")
+        print(f"DEBUG: y.dtype before SKF split: {y.dtype}")
+        print(f"DEBUG: y.unique() before SKF split: {y.unique()}")
+        print(f"DEBUG: y.value_counts() before SKF split:\n{y.value_counts()}")
+        print(f"DEBUG: y.isnull().sum() before SKF split: {y.isnull().sum()}")
 
         # Define model filename
         model_filename = os.path.join(MODEL_PATH, f"model_{target}.joblib")
 
         # Load model if it exists
+        best_model_pipeline = None
+        recalculate_metrics = False
+        recalculate_importances = False
+
         if os.path.exists(model_filename):
             print(f"Loading pre-trained model for {target} from {model_filename}")
             loaded_data = joblib.load(model_filename)
-            models[target] = loaded_data['model']
-            
-            # Load performance metrics and feature importances
-            if 'performance_metrics' in loaded_data:
-                model_performance_metrics[target] = loaded_data['performance_metrics']
-                print(f"Performance metrics for {target} loaded.")
-            else:
-                print(f"Warning: No performance metrics found for {target} in loaded model.")
-                # Fallback to N/A if metrics are not found in the loaded file
-                model_performance_metrics[target] = {
-                    "accuracy": "N/A (loaded)",
-                    "precision": "N/A (loaded)",
-                    "recall": "N/A (loaded)",
-                    "f1_score": "N/A (loaded)",
-                    "model_type": "Random Forest (Loaded)",
-                    "last_trained": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "dataset_size": len(data),
-                    "features_used": len(numerical_features) + len(categorical_features),
-                    "cross_validation_folds": "N/A (loaded)",
-                    "fold_accuracies": "N/A (loaded)",
-                    "fold_precisions": "N/A (loaded)",
-                    "fold_recalls": "N/A (loaded)",
-                    "fold_f1_scores": "N/A (loaded)"
-                }
+            best_model_pipeline = loaded_data['model']
+            models[target] = best_model_pipeline # Store the loaded model
 
-            if 'feature_importances' in loaded_data:
-                feature_importances_dict[target] = loaded_data['feature_importances']
-                print(f"Feature importances for {target} loaded.")
+            # Check and load performance metrics
+            if 'performance_metrics' in loaded_data:
+                # Force recalculation if metrics are all zeros or empty lists
+                loaded_metrics = loaded_data['performance_metrics']
+                if all(value == 0 for key, value in loaded_metrics.items() if isinstance(value, (int, float))) or \
+                   any(isinstance(value, list) and not value for value in loaded_metrics.values()):
+                    print(f"Warning: Loaded performance metrics for {target} are all zeros or empty. Recalculating...")
+                    recalculate_metrics = True
+                else:
+                    model_performance_metrics[target] = loaded_metrics
+                    print(f"Performance metrics for {target} loaded.")
             else:
-                print(f"Warning: No feature importances found for {target} in loaded model.")
+                print(f"Warning: No performance metrics found for {target} in loaded model. Recalculating...")
+                recalculate_metrics = True
+
+            # Check and load feature importances
+            if 'feature_importances' in loaded_data:
+                # Force recalculation if feature importances are empty
+                loaded_importances = loaded_data['feature_importances']
+                if not loaded_importances: # Check if the dictionary is empty
+                    print(f"Warning: Loaded feature importances for {target} are empty. Recalculating...")
+                    recalculate_importances = True
+                else:
+                    feature_importances_dict[target] = loaded_importances
+                    print(f"Feature importances for {target} loaded.")
+            else:
+                print(f"Warning: No feature importances found for {target} in loaded model. Recalculating...")
+                recalculate_importances = True
             
-            continue # Skip training if model is loaded
+            # If both metrics and importances were loaded AND are valid, we can continue
+            if not recalculate_metrics and not recalculate_importances:
+                continue # Skip training/re-evaluation if model and metrics were fully loaded and valid
+            else:
+                print(f"Proceeding to recalculate metrics/importances for {target}.")
+        
+        # If best_model_pipeline is still None, it means the model was not loaded (or not found)
+        # So, we need to train it from scratch.
+        if best_model_pipeline is None:
+            # Hyperparameter tuning search space for RandomForestClassifier
+            param_space = {
+                'classifier__n_estimators': Integer(50, 200),
+                'classifier__max_features': Categorical(['sqrt', 'log2', None]),
+                'classifier__max_depth': Integer(5, 50),
+                'classifier__min_samples_split': Integer(2, 20),
+                'classifier__min_samples_leaf': Integer(1, 10),
+                'smote__k_neighbors': Integer(1, 10) # For SMOTE
+            }
+
+            # Create a base pipeline for BayesSearchCV
+            base_pipeline = ImblearnPipeline(steps=[('preprocessor', preprocessor_obj),
+                                                     ('smote', SMOTE(random_state=42)),
+                                                     ('classifier', RandomForestClassifier(random_state=42))])
+
+            # Use f1_score as the scoring metric for BayesSearchCV, using make_scorer for weighted average
+            f1_scorer = make_scorer(f1_score, average='weighted', zero_division=0)
+
+            # Initialize BayesSearchCV
+            opt = BayesSearchCV(
+                estimator=base_pipeline,
+                search_spaces=param_space,
+                n_iter=50, # Number of optimization iterations (can be increased)
+                cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42), # Use StratifiedKFold for CV
+                scoring=f1_scorer,
+                n_jobs=-1, # Use all available cores
+                random_state=42,
+                verbose=1
+            )
+
+            print(f"Starting hyperparameter tuning for {target}...")
+            opt.fit(X, y)
+
+            print(f"Hyperparameter tuning for {target} completed.")
+            print(f"Best parameters for {target}: {opt.best_params_}")
+            
+            # The best estimator from BayesSearchCV is the trained model with optimal hyperparameters
+            best_model_pipeline = opt.best_estimator_
+            models[target] = best_model_pipeline # Store the newly trained model
+        
+        # Now, best_model_pipeline is guaranteed to be set (either loaded or newly trained)
+        # Proceed with evaluation and saving for both cases if needed.
+        
+        # Initialize StratifiedKFold for cross-validation on the best model
+        skf_final = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        
+        fold_accuracies = []
+        fold_precisions = []
+        fold_recalls = []
+        fold_f1_scores = []
+
+        for fold, (train_index, test_index) in enumerate(skf_final.split(X, y)):
+            X_train_fold, X_test_fold = X.iloc[train_index], X.iloc[test_index]
+            y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
+            
+            # Predict on the test fold using the best_model_pipeline
+            y_pred = best_model_pipeline.predict(X_test_fold)
+            fold_accuracies.append(accuracy_score(y_test_fold, y_pred))
+            fold_precisions.append(precision_score(y_test_fold, y_pred, average='weighted', zero_division=0))
+            fold_recalls.append(recall_score(y_test_fold, y_pred, average='weighted', zero_division=0))
+            fold_f1_scores.append(f1_score(y_test_fold, y_pred, average='weighted', zero_division=0))
+            
+        # Calculate average metrics across all folds for the best model
+        avg_accuracy = np.mean(fold_accuracies)
+        avg_precision = np.mean(fold_precisions)
+        avg_recall = np.mean(fold_recalls)
+        avg_f1 = np.mean(fold_f1_scores)
+        
+        print(f"Model for {target} trained and tuned successfully with cross-validation.")
+        
+        # Initialize train_accuracy
+        train_accuracy = 0.0
+
+        # Calculate training accuracy if X is not empty
+        if not X.empty:
+            y_pred_train = best_model_pipeline.predict(X)
+            train_accuracy = accuracy_score(y, y_pred_train)
+
+        # Store performance metrics (averaged from cross-validation of the best model)
+        model_performance_metrics[target] = {
+            "training_accuracy": train_accuracy,
+            "test_accuracy": avg_accuracy, # This is the averaged cross-validation accuracy
+            "precision": avg_precision,
+            "recall": avg_recall,
+            "f1_score": avg_f1,
+            "model_type": "Random Forest (Tuned)",
+            "last_trained": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "dataset_size": len(data),
+            "features_used": len(numerical_features) + len(categorical_features),
+            "cross_validation_folds": skf_final.get_n_splits(X, y),
+            "best_params": opt.best_params_ if 'opt' in locals() else "N/A (loaded model)", # Include best_params if newly trained
+            "fold_accuracies": fold_accuracies,
+            "fold_precisions": fold_precisions,
+            "fold_recalls": fold_recalls,
+            "fold_f1_scores": fold_f1_scores
+        }
+        
+        # Get feature importances from the best classifier within the pipeline
+        if hasattr(best_model_pipeline.named_steps['classifier'], 'feature_importances_'):
+            importances = best_model_pipeline.named_steps['classifier'].feature_importances_
+            preprocessed_feature_names = best_model_pipeline.named_steps['preprocessor'].get_feature_names_out()
+            feature_importances_dict[target] = dict(zip(preprocessed_feature_names, importances))
+            print(f"Feature importances for {target} calculated and stored.")
+ 
+        # Prepare data to save: model, performance metrics, and feature importances
+        model_data_to_save = {
+            'model': best_model_pipeline,
+            'performance_metrics': model_performance_metrics[target],
+            'feature_importances': feature_importances_dict.get(target, {})
+        }
+
+        # Save the trained model and its associated data
+        joblib.dump(model_data_to_save, model_filename)
+        print(f"Model and associated data for {target} saved to {model_filename}")
 
         # Hyperparameter tuning search space for RandomForestClassifier
         # More parameters can be added here

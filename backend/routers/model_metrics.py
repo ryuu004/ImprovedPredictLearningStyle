@@ -62,21 +62,27 @@ async def get_confusion_matrix():
     print(f"DEBUG (model_metrics): df columns before X selection: {df.columns.tolist()}")
     X = df[numerical_features + categorical_features]
 
-    # Drop rows with NaN values after selecting features
-    # This .dropna() should now work correctly as strings in numerical columns are handled
-    print("DEBUG: Dropping rows with NaN values from X.")
-    X = X.dropna()
-    print(f"DEBUG: X shape after dropping NaNs: {X.shape}")
+    # X.dropna() is no longer needed as SimpleImputer in preprocessor_obj handles NaNs
+    # print("DEBUG: Dropping rows with NaN values from X.")
+    # X = X.dropna()
+    print(f"DEBUG: X shape before prediction: {X.shape}")
 
     print("DEBUG: Iterating through target labels for model predictions.")
     for target in target_labels:
         if target in models:
             print(f"DEBUG: Processing target: {target}")
-            y_true = df.loc[X.index, target].astype('category').cat.codes # Ensure y_true is numerical
+            # Ensure y_true is consistent with the numerical target values (0 or 1) the models were trained on
+            # If the original dataframe's target column is already numerical (int), use it directly.
+            # Otherwise, convert it to numerical using the same logic as in main.py during training.
+            if df[target].dtype == 'object':
+                y_true = df.loc[X.index, target].astype('category').cat.codes
+            else:
+                y_true = df.loc[X.index, target].astype(int) # Ensure it's integer type
             
             # Apply the preprocessor to X before prediction
             print(f"DEBUG: Predicting for target {target}.")
-            y_pred = models[target].predict(X) # Predict on the original dataset, pipeline handles preprocessing
+            # Ensure X has the same index as y_true after any potential row dropping
+            y_pred = models[target].predict(X.loc[y_true.index]) # Predict on the original dataset, pipeline handles preprocessing
             
             # Calculate Confusion Matrix
             print(f"DEBUG: Calculating confusion matrix for {target}.")
