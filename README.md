@@ -130,7 +130,7 @@ You can also try to kill processes by name, though this can be less precise:
 - **On Windows:**
 
   ```bash
-  taskkill /IM uvicorn.exe /F
+  taskkill /IM python.exe /F
   ```
 
   (This will kill all processes named `uvicorn.exe`. Use with caution).

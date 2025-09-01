@@ -271,6 +271,18 @@ async def train_model():
         best_model_pipeline = opt.best_estimator_
         models[target] = best_model_pipeline
 
+        # Evaluate the best model using cross-validation (from BayesSearchCV results)
+        # We can directly use opt.cv_results_ to get fold metrics if needed,
+        # but for simplicity, let's re-evaluate on the best estimator using a new SKF.
+        
+        # Initialize StratifiedKFold for cross-validation on the best model
+        skf_final = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        
+        fold_accuracies = []
+        fold_precisions = []
+        fold_recalls = []
+        fold_f1_scores = []
+
         # Prepare data to save: model, performance metrics, and feature importances
         model_data_to_save = {
             'model': best_model_pipeline,
@@ -296,23 +308,11 @@ async def train_model():
 
         # Save the trained model and its associated data
         # Only save if skf_final was actually initialized (meaning training occurred)
-        if skf_final is not None:
+        if skf_final is not None: # This condition will now always be true if skf_final is initialized
             joblib.dump(model_data_to_save, model_filename)
             print(f"Model and associated data for {target} saved to {model_filename}")
         else:
             print(f"Skipping saving model for {target} as training was not performed or failed.")
-
-        # Evaluate the best model using cross-validation (from BayesSearchCV results)
-        # We can directly use opt.cv_results_ to get fold metrics if needed,
-        # but for simplicity, let's re-evaluate on the best estimator using a new SKF.
-        
-        # Initialize StratifiedKFold for cross-validation on the best model
-        skf_final = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        
-        fold_accuracies = []
-        fold_precisions = []
-        fold_recalls = []
-        fold_f1_scores = []
         
         for fold, (train_index, test_index) in enumerate(skf_final.split(X, y)):
             X_train_fold, X_test_fold = X.iloc[train_index], X.iloc[test_index]
