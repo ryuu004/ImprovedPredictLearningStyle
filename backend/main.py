@@ -1,9 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler # Import StandardScaler
-from sklearn.impute import SimpleImputer # Import SimpleImputer
 from sklearn.model_selection import train_test_split
 from imblearn.pipeline import Pipeline as ImblearnPipeline # Renamed to avoid conflict
 import pandas as pd
@@ -12,28 +9,11 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from sklearn.model_selection import StratifiedKFold
 from datetime import datetime
-from backend.dependencies import models, feature_names, feature_importances_dict, model_performance_metrics, categorical_features, target_labels, boolean_cols, numerical_features, db, client, students_collection
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from backend.dependencies import models, feature_names, feature_importances_dict, model_performance_metrics, categorical_features, target_labels, boolean_cols, numerical_features, db, client, students_collection, preprocessor_obj # Import preprocessor_obj
 import joblib # Import joblib for model persistence
 from skopt import BayesSearchCV # Import BayesSearchCV for hyperparameter tuning
 from skopt.space import Real, Categorical, Integer # Import space definitions
 import os # Import os module for path operations
-
-# Define the preprocessor globally
-# Numerical features will be imputed with the mean and then scaled
-numerical_transformer = ImblearnPipeline(steps=[
-    ('imputer', SimpleImputer(strategy='mean')),
-    ('scaler', StandardScaler())
-])
-
-preprocessor_obj = ColumnTransformer(
-    transformers=[
-        ('num', numerical_transformer, numerical_features), # Use the numerical_transformer
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
-    ],
-    remainder='drop'
-)
 
 # Define the path for saving/loading models
 MODEL_PATH = "backend/models/"
@@ -532,8 +512,10 @@ async def read_root():
     return {"message": "FastAPI backend is running"}
 
 from backend.routers import model_metrics # Include the new router
+from backend.routers import simulate_students # Include the new router
 
 app.include_router(model_metrics.router)
+app.include_router(simulate_students.router)
 
 @app.get("/db-status")
 async def get_db_status():

@@ -21,6 +21,11 @@ export default function Sidebar() {
               Model Stats
             </Link>
           </li>
+          <li>
+            <Link href="/simulate" className="flex items-center p-2 text-base font-normal text-white rounded-lg hover:bg-subtle-gray-dark group">
+              Simulate
+            </Link>
+          </li>
         </ul>
       </nav>
     </aside>

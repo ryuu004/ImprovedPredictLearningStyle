@@ -79,3 +79,34 @@ export async function insertTrainingData(data) {
   const result = await collection.insertMany(data);
   return result;
 }
+
+export async function getSimulatedStudentsCollection() {
+  const client = await clientPromise;
+  const db = client.db("ml_database");
+  const collection = db.collection("simulated_students");
+  return collection;
+}
+
+export async function insertSimulatedStudents(data) {
+  const collection = await getSimulatedStudentsCollection();
+  const result = await collection.insertMany(data);
+  return result;
+}
+
+export async function deleteSimulatedStudents(student_ids) {
+  const collection = await getSimulatedStudentsCollection();
+  const result = await collection.deleteMany({ student_id: { $in: student_ids } });
+  return result;
+}
+
+export async function deleteAllSimulatedStudents() {
+  const collection = await getSimulatedStudentsCollection();
+  const result = await collection.deleteMany({});
+  return result;
+}
+
+export async function getAllSimulatedStudents() {
+  const collection = await getSimulatedStudentsCollection();
+  const students = await collection.find({}).toArray();
+  return students;
+}

@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline # Added import
+from sklearn.preprocessing import StandardScaler # Added import
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -50,3 +52,15 @@ numerical_features = [
 ]
 
 # Define the preprocessor globally
+numerical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean')),
+    ('scaler', StandardScaler())
+])
+
+preprocessor_obj = ColumnTransformer(
+    transformers=[
+        ('num', numerical_transformer, numerical_features),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+    ],
+    remainder='drop'
+)
