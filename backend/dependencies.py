@@ -18,6 +18,7 @@ students_collection = db["training_data"]
 
 # Global variables for models, feature names, and feature importances
 models = {}
+lstm_model = None # Placeholder for LSTM model
 feature_names = None
 feature_importances_dict = {}
 model_performance_metrics = {}

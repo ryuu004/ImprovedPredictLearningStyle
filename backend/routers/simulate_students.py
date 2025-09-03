@@ -5,13 +5,21 @@ import random
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from sklearn.pipeline import Pipeline # Import Pipeline
+from sklearn.preprocessing import StandardScaler # Import StandardScaler
+from sklearn.impute import SimpleImputer # Import SimpleImputer
+from sklearn.compose import ColumnTransformer # Import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder # Import OneHotEncoder
 
-from backend.dependencies import models, numerical_features, categorical_features, boolean_cols, db, preprocessor_obj
+from backend.dependencies import models, numerical_features, categorical_features, boolean_cols, db, preprocessor_obj, lstm_model
+from sklearn.preprocessing import OneHotEncoder
+import numpy as np # Ensure numpy is imported
 
 router = APIRouter()
 
 class SimulateRequest(BaseModel):
     num_students: int
+    days_old: int = 0 # New field for days old
 
 class SimulatedStudent(BaseModel):
     # This model should reflect the structure of StudentLearningData from src/lib/db.js
@@ -48,13 +56,14 @@ class SimulatedStudent(BaseModel):
     average_study_session_length: int
     # Predicted learning styles will be added dynamically
 
-def generate_realistic_student_data(num_students: int) -> List[Dict[str, Any]]:
+def generate_realistic_student_data(num_students: int, days_old: int) -> List[Dict[str, Any]]:
     # Placeholder for realistic data generation
     # This will be replaced with more sophisticated logic later
     simulated_data = []
     for i in range(num_students):
         student = {
             "STUDENT_ID": f"sim_student_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{i}",
+            "DAYS_OLD": 0, # Initialize days_old to 0
             "AGE": random.randint(18, 25),
             "GENDER": random.choice(["Male", "Female", "Other"]),
             "ACADEMIC_PROGRAM": random.choice(["IT", "Engineering", "Business", "Arts", "Science"]),
@@ -93,62 +102,79 @@ async def simulate_students_endpoint(request: SimulateRequest):
     if not models:
         raise HTTPException(status_code=500, detail="AI Models not loaded. Cannot simulate learning styles.")
 
-    print(f"Simulating {request.num_students} students...")
-    simulated_raw_data = generate_realistic_student_data(request.num_students)
-    
+    print(f"Simulating {request.num_students} students with {request.days_old} days old...")
+    simulated_raw_data = generate_realistic_student_data(request.num_students, request.days_old)
+
     predictions_list = []
-    
+
+    # Define the exact list of features the preprocessor expects, in the correct order.
+    # These lists are imported from backend.dependencies.
+    all_expected_preprocessor_cols = [f.upper() for f in numerical_features] + \
+                                     [f.upper() for f in categorical_features]
+
+    # Define dynamic and static features based on the problem description
+    # This is a simplified representation. In a real scenario, these would be derived from
+    # the actual features used in your LSTM and RF models.
+    dynamic_features = [
+        "TIME_SPENT_ON_VIDEOS",
+        "QUIZ_ATTEMPTS",
+        "FORUM_PARTICIPATION_COUNT",
+        "LOGIN_FREQUENCY_PER_WEEK",
+        "DAYS_OLD" # Assuming days_old influences temporal patterns
+    ]
+    static_features = [
+        "AGE",
+        "GENDER",
+        "ACADEMIC_PROGRAM",
+        "YEAR_LEVEL",
+        "GPA",
+        "TIME_SPENT_ON_TEXT_MATERIALS",
+        "TIME_SPENT_ON_INTERACTIVE_ACTIVITIES",
+        "GROUP_ACTIVITY_PARTICIPATION",
+        "INDIVIDUAL_ACTIVITY_PREFERENCE",
+        "NOTE_TAKING_STYLE",
+        "PREFERENCE_FOR_VISUAL_MATERIALS",
+        "PREFERENCE_FOR_TEXTUAL_MATERIALS",
+        "TIME_TO_COMPLETE_ASSIGNMENTS",
+        "LEARNING_PATH_NAVIGATION",
+        "PROBLEM_SOLVING_PREFERENCE",
+        "RESPONSE_SPEED_IN_QUIZZES",
+        "ACCURACY_IN_DETAIL_ORIENTED_QUESTIONS",
+        "ACCURACY_IN_CONCEPTUAL_QUESTIONS",
+        "PREFERENCE_FOR_EXAMPLES",
+        "SELF_REFLECTION_ACTIVITY",
+        "VIDEO_PAUSE_AND_REPLAY_COUNT",
+        "QUIZ_REVIEW_FREQUENCY",
+        "SKIPPED_CONTENT_RATIO",
+        "AVERAGE_STUDY_SESSION_LENGTH"
+    ]
+
+
     for student_data in simulated_raw_data:
-        input_df = pd.DataFrame([student_data])
+        # Ensure 'DAYS_OLD' is correctly set from the request
+        student_data["DAYS_OLD"] = request.days_old
+
+        # Create a DataFrame with all expected columns and populate it with student_data.
+        # This ensures all columns the preprocessor expects are present, even if
+        # generate_realistic_student_data didn't explicitly provide them (they'll be NaN).
+        input_df = pd.DataFrame([student_data]).reindex(columns=all_expected_preprocessor_cols, fill_value=np.nan)
+
         # Convert boolean fields to numerical (0 or 1)
         for col in boolean_cols:
             if col in input_df.columns:
                 input_df[col] = input_df[col].astype(int)
 
-        # Ensure numerical columns are numeric before passing to preprocessor
-        for col in numerical_features:
-            if col in input_df.columns:
-                input_df.loc[:, col] = pd.to_numeric(input_df[col], errors='coerce')
-            else:
-                input_df[col] = np.nan # Ensure missing numerical features are NaN for imputer
-
-        # For categorical features, ensure they are present or default to a value
-        for col in categorical_features:
-            if col not in input_df.columns:
-                input_df[col] = 'unknown' # Default for missing categorical features
-            else:
-                input_df[col] = input_df[col].astype(str).fillna('missing_category')
-
         student_predictions = {}
         for target, model_pipeline in models.items():
-            # Select only the columns that the preprocessor expects
-            # Ensure the order of columns is consistent with training data (preprocessor handles this)
-            # Ensure all numerical and categorical features are present.
-            # If any are missing in input_df, add them with NaN or 'unknown' as appropriate.
-            all_expected_features = [f.upper() for f in numerical_features] + [f.upper() for f in categorical_features]
-            for feature in all_expected_features:
-                if feature not in input_df.columns:
-                    if feature in [f.upper() for f in numerical_features]:
-                        input_df[feature] = np.nan
-                    else:
-                        input_df[feature] = 'unknown'
+            # Pass the raw input_df to the model_pipeline.predict().
+            # The pipeline, now including LSTMFeatureExtractor and ColumnTransformer,
+            # will handle all preprocessing and feature engineering internally.
+            prediction_result = model_pipeline.predict(input_df)
 
-            input_for_prediction = input_df[[f.upper() for f in numerical_features] + [f.upper() for f in categorical_features]]
-            
-            print(f"DEBUG: input_df columns before prediction: {input_df.columns.tolist()}")
-            print(f"DEBUG: input_for_prediction shape: {input_for_prediction.shape}")
-            print(f"DEBUG: input_for_prediction head:\n{input_for_prediction.head()}")
-
-            prediction_result = model_pipeline.predict(input_for_prediction)
-            
-            # Assuming the target labels are in the same order as when the model was trained
-            # This part needs to be improved if the original string labels are desired
-            # For now, just return the numerical prediction
             student_predictions[target] = prediction_result[0].item()
 
-        # Add predictions to the student data
+        # Add predictions and the days_old to the student data
         student_data.update(student_predictions)
-        # Convert all keys to lowercase before appending
         predictions_list.append({k.lower(): v for k, v in student_data.items()})
 
     # Save to MongoDB

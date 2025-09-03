@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
-    const { num_students } = await request.json();
+    const { num_students, days_old } = await request.json();
     const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/simulate-students`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ num_students }),
+      body: JSON.stringify({ num_students, days_old }),
     });
 
     if (!backendResponse.ok) {

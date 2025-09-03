@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import DashboardLayout from '../dashboard/layout';
 
 export default function SimulatePage() {
   const [numStudents, setNumStudents] = useState(1);
+  const [daysOld, setDaysOld] = useState(0); // New state for days old
   const [simulatedStudents, setSimulatedStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
@@ -35,7 +37,7 @@ export default function SimulatePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ num_students: numStudents }),
+        body: JSON.stringify({ num_students: numStudents, days_old: daysOld }), // Include days_old
       });
 
       if (!response.ok) {
@@ -111,58 +113,69 @@ export default function SimulatePage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold mb-6">Simulate Student Data</h1>
+    <DashboardLayout>
+      <div className="bg-dark-navy text-white p-2 min-h-screen overflow-y-auto">
+        <h1 className="text-3xl font-bold mb-6 text-accent-blue">Simulate Student Data</h1>
 
         {/* Simulation Panel */}
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Simulation Panel</h2>
-          <div className="flex items-center space-x-4">
-            <label htmlFor="numStudents" className="text-lg">Number of Students:</label>
+        <div className="bg-charcoal rounded-xl p-3 shadow-lg mb-3 border border-transparent hover:border-accent-blue transition-all duration-300 ease-in-out">
+          <h2 className="text-xl font-bold mb-3 text-accent-blue">Simulation Panel</h2>
+          <div className="flex items-center space-x-4 mb-4">
+            <label htmlFor="numStudents" className="text-lg text-gray-300">Number of Students:</label>
             <input
               type="number"
               id="numStudents"
               value={numStudents}
               onChange={(e) => setNumStudents(Math.max(1, parseInt(e.target.value) || 1))}
               min="1"
-              className="w-24 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="w-24 p-2 border border-subtle-gray-light rounded-md bg-subtle-gray-dark text-accent-cyan"
+            />
+          </div>
+          <div className="flex items-center space-x-4">
+            <label htmlFor="daysOld" className="text-lg text-gray-300">Days Old for LSTM:</label>
+            <input
+              type="number"
+              id="daysOld"
+              value={daysOld}
+              onChange={(e) => setDaysOld(Math.max(0, parseInt(e.target.value) || 0))}
+              min="0"
+              className="w-24 p-2 border border-subtle-gray-light rounded-md bg-subtle-gray-dark text-accent-cyan"
             />
             <button
               onClick={handleSimulate}
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-6 py-2 bg-accent-blue text-white font-semibold rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors duration-300"
             >
               {loading ? loadingMessage : "Simulate"}
             </button>
           </div>
-          {loading && <p className="mt-4 text-blue-500">{loadingMessage}</p>}
+          {loading && <p className="mt-4 text-accent-cyan">{loadingMessage}</p>}
         </div>
 
         {/* Simulated Students Table */}
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-4">Simulated Students</h2>
+        <div className="bg-charcoal rounded-xl p-3 shadow-lg mb-3 border border-transparent hover:border-accent-blue transition-all duration-300 ease-in-out">
+          <h2 className="text-xl font-bold mb-3 text-accent-blue">Simulated Students</h2>
           <div className="mb-4 flex space-x-2">
             <button
               onClick={handleDeleteSelected}
               disabled={selectedStudents.length === 0 || loading}
-              className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 disabled:opacity-50"
+              className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors duration-300"
             >
               Delete Selected ({selectedStudents.length})
             </button>
             <button
               onClick={handleDeleteAll}
               disabled={simulatedStudents.length === 0 || loading}
-              className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 disabled:opacity-50"
+              className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors duration-300"
             >
               Delete All
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+          <div className="overflow-x-auto overflow-y-auto relative rounded-lg border border-subtle-gray-dark" style={{ maxHeight: '400px' }}>
+            <table className="min-w-full text-left table-auto table-compact">
+              <thead className="bg-charcoal sticky top-0 border-b border-subtle-gray-light">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     <input
                       type="checkbox"
                       onChange={(e) =>
@@ -176,49 +189,52 @@ export default function SimulatePage() {
                       disabled={simulatedStudents.length === 0}
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Student ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                    Days Old
+                  </th>
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Age
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Gender
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Academic Program
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Year Level
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     GPA
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Active vs Reflective
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Sensing vs Intuitive
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Visual vs Verbal
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
                     Sequential vs Global
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="text-gray-300 text-sm font-light">
                 {simulatedStudents.length === 0 ? (
                   <tr>
-                    <td colSpan="11" className="px-6 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan="11" className="px-2 py-1 whitespace-nowrap text-center text-gray-500">
                       No simulated students yet. Click &apos;Simulate&apos; to generate some.
                     </td>
                   </tr>
                 ) : (
                   simulatedStudents.map((student) => (
                     <tr key={student._id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-2 py-1 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedStudents.includes(student._id)}
@@ -227,6 +243,9 @@ export default function SimulatePage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {student.student_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {student.days_old}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {student.age}
@@ -262,7 +281,7 @@ export default function SimulatePage() {
             </table>
           </div>
         </div>
-      </main>
-    </div>
+        </div>
+    </DashboardLayout>
   );
 }
