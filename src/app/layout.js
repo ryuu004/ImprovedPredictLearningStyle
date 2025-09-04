@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
+import MotionMainWrapper from "./components/MotionMainWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,11 +21,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} flex`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} flex bg-deep-space-navy`}>
         <Sidebar />
-        <main className="flex-1">
-          {children}
-        </main>
+        <MotionMainWrapper>{children}</MotionMainWrapper>
       </body>
     </html>
   );

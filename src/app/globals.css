@@ -1,6 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-effect 0.6s linear;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 10;
+}
+
+@keyframes ripple-effect {
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.glow-on-hover {
+  outline: none;
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.glow-on-hover:focus {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.7); /* electric-purple with some transparency */
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply antialiased;
+  }
+}
+
+html,
+body {
+  font-family: 'Inter', sans-serif;
+  color: #FFFFFF; /* primary-text */
+  background-color: #0B0B1A; /* deep-space-navy */
+  line-height: 1.6; /* Optimal readability */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #FFFFFF; /* primary-text */
+  font-weight: 600; /* Semi-bold */
+  line-height: 1.1; /* For headings */
+  letter-spacing: -0.02em; /* Better optical balance */
+  text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3); /* Subtle text shadow */
+}
+
+/* Base styles for shimmer effect */
+.shimmer-effect {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shine 1.5s infinite;
+}
+
+/* Gradient text effect for hero titles */
+.hero-title {
+  background: linear-gradient(to right, #4A9EFF, #FFFFFF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Brand Integration (Conceptual CSS) */
+.brand-gradient-text {
+  background: linear-gradient(to right, #8B5CF6, #EC4899); /* Electric Purple to Accent Pink */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-icon {
+  filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.7)); /* Electric Purple glow */
+}
+
+/* Data Storytelling Framework (Conceptual CSS) */
+.narrative-card {
+  /* Styles for cards presenting insights */
+  border-left: 5px solid #8B5CF6; /* Electric purple accent */
+  padding-left: 1rem;
+}
+
+.growth-indicator {
+  /* Styles for growth indicators with organic animations */
+  transition: all 0.5s ease-out;
+  transform: scale(1);
+}
+
+.growth-indicator.animate-grow {
+  transform: scale(1.1);
+  color: #10B981; /* Emerald green for growth */
+}
+
+.performance-gauge {
+  /* Styles for performance gauges with realistic physics */
+  transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Springy effect */
+}
+
+.achievement-badge {
+  /* Styles for achievement badges with celebratory effects */
+  animation: pop-in 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+p {
+  color: #8B9BB3; /* secondary-text */
+  font-weight: 400; /* Regular weight */
+}
+
+/* Glass Morphism Effect */
+.glass-morphism {
+  background: rgba(26, 27, 46, 0.4); /* charcoal-elevated with transparency */
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
 
 /* Custom scrollbar for Webkit browsers */
 ::-webkit-scrollbar {
@@ -9,18 +141,38 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937; /* Charcoal, matching the table background */
+  background: #1A1B2E; /* charcoal-elevated */
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2D333B; /* Subtle gray, matching subtle-gray-light */
+  background: #2D333B; /* subtle-gray-light */
   border-radius: 10px;
-  border: 2px solid #1f2937; /* Border to match track background */
+  border: 2px solid #1A1B2E; /* charcoal-elevated */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a414b; /* Slightly lighter on hover */
+  background: #21262D; /* subtle-gray-dark */
+}
+
+/* Layered Lighting and 3D Effects (Conceptual - CSS only provides limited 3D capabilities) */
+/* This is more for subtle visual cues rather than true 3D rendering */
+.light-source-1 {
+  box-shadow: 0 0 60px rgba(139, 92, 246, 0.4); /* Electric Purple glow */
+}
+
+.light-source-2 {
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); /* Emerald Success glow */
+}
+
+.floating-element {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
 /* For Firefox (less customization options) */
