@@ -56,6 +56,34 @@ export default function SimulatePage() {
     }
   };
 
+  const handleNextDay = async () => {
+    if (selectedStudents.length === 0) return;
+
+    setLoading(true);
+    setLoadingMessage("Advancing selected students to next day...");
+    try {
+      const response = await fetch('/api/update-days-old', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_ids: selectedStudents }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Backend error! status: ${response.status}`);
+      }
+      setSelectedStudents([]); // Clear selection
+      await fetchSimulatedStudents(); // Refresh the table
+    } catch (error) {
+      console.error("Error advancing students to next day:", error);
+    } finally {
+      setLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
   const handleCheckboxChange = (studentId) => {
     setSelectedStudents((prevSelected) =>
       prevSelected.includes(studentId)
@@ -152,6 +180,18 @@ export default function SimulatePage() {
           {loading && <p className="mt-4 text-accent-cyan">{loadingMessage}</p>}
         </div>
 
+        {/* Next Day Update Panel */}
+        <div className="bg-charcoal rounded-xl p-3 shadow-lg mb-3 border border-transparent hover:border-accent-blue transition-all duration-300 ease-in-out">
+          <h2 className="text-xl font-bold mb-3 text-accent-blue">Update Simulated Students (Next Day)</h2>
+          <button
+            onClick={handleNextDay}
+            disabled={selectedStudents.length === 0 || loading}
+            className="px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors duration-300"
+          >
+            Advance Selected Students to Next Day ({selectedStudents.length})
+          </button>
+        </div>
+
         {/* Simulated Students Table */}
         <div className="bg-charcoal rounded-xl p-3 shadow-lg mb-3 border border-transparent hover:border-accent-blue transition-all duration-300 ease-in-out">
           <h2 className="text-xl font-bold mb-3 text-accent-blue">Simulated Students</h2>
@@ -181,9 +221,9 @@ export default function SimulatePage() {
                       onChange={(e) =>
                         setSelectedStudents(
                           e.target.checked
-                            ? simulatedStudents.map((s) => s._id) // Use s._id as key
+                            ? simulatedStudents.map((s) => s.student_id) // Use student_id as key
                                : []
-                           )
+                            )
                          }
                          checked={selectedStudents.length === simulatedStudents.length && simulatedStudents.length > 0}
                       disabled={simulatedStudents.length === 0}
@@ -228,17 +268,17 @@ export default function SimulatePage() {
                 {simulatedStudents.length === 0 ? (
                   <tr>
                     <td colSpan="11" className="px-2 py-1 whitespace-nowrap text-center text-gray-500">
-                      No simulated students yet. Click &apos;Simulate&apos; to generate some.
+                      No simulated students yet. Click 'Simulate' to generate some.
                     </td>
                   </tr>
                 ) : (
                   simulatedStudents.map((student) => (
-                    <tr key={student._id}>
+                    <tr key={student.student_id}>
                       <td className="px-2 py-1 whitespace-nowrap">
                         <input
                           type="checkbox"
-                          checked={selectedStudents.includes(student._id)}
-                          onChange={() => handleCheckboxChange(student._id)}
+                          checked={selectedStudents.includes(student.student_id)}
+                          onChange={() => handleCheckboxChange(student.student_id)}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">

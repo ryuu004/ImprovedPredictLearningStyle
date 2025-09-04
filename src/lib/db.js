@@ -33,6 +33,7 @@ export default clientPromise;
  * @property {string} academic_program - e.g., IT, Engineering, Business
  * @property {string} year_level - 1st year, 2nd year, etc.
  * @property {number} GPA - or previous_academic_performance
+ * @property {number} days_old - Number of days since simulation
  * @property {number} time_spent_on_videos - hours per week
  * @property {number} time_spent_on_text_materials
  * @property {number} time_spent_on_interactive_activities

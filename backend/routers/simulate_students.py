@@ -21,6 +21,10 @@ class SimulateRequest(BaseModel):
     num_students: int
     days_old: int = 0 # New field for days old
 
+class UpdateDaysOldRequest(BaseModel):
+    student_ids: List[str]
+    days_to_add: int
+
 class SimulatedStudent(BaseModel):
     # This model should reflect the structure of StudentLearningData from src/lib/db.js
     # but without the target variables as they will be predicted.
@@ -30,6 +34,7 @@ class SimulatedStudent(BaseModel):
     academic_program: str
     year_level: str
     GPA: float
+    days_old: int # Add days_old to the Pydantic model
     time_spent_on_videos: int
     time_spent_on_text_materials: int
     time_spent_on_interactive_activities: int
@@ -63,7 +68,7 @@ def generate_realistic_student_data(num_students: int, days_old: int) -> List[Di
     for i in range(num_students):
         student = {
             "STUDENT_ID": f"sim_student_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{i}",
-            "DAYS_OLD": 0, # Initialize days_old to 0
+            "DAYS_OLD": days_old, # Use the passed days_old
             "AGE": random.randint(18, 25),
             "GENDER": random.choice(["Male", "Female", "Other"]),
             "ACADEMIC_PROGRAM": random.choice(["IT", "Engineering", "Business", "Arts", "Science"]),
@@ -102,101 +107,111 @@ async def simulate_students_endpoint(request: SimulateRequest):
     if not models:
         raise HTTPException(status_code=500, detail="AI Models not loaded. Cannot simulate learning styles.")
 
-    print(f"Simulating {request.num_students} students with {request.days_old} days old...")
-    simulated_raw_data = generate_realistic_student_data(request.num_students, request.days_old)
-
+    simulated_students_collection = db["simulated_students"]
     predictions_list = []
 
+    # Create new students
+    print(f"Simulating {request.num_students} new students with {request.days_old} days old...")
+    simulated_raw_data = generate_realistic_student_data(request.num_students, request.days_old)
+
     # Define the exact list of features the preprocessor expects, in the correct order.
-    # These lists are imported from backend.dependencies.
     all_expected_preprocessor_cols = [f.upper() for f in numerical_features] + \
                                      [f.upper() for f in categorical_features]
 
-    # Define dynamic and static features based on the problem description
-    # This is a simplified representation. In a real scenario, these would be derived from
-    # the actual features used in your LSTM and RF models.
-    dynamic_features = [
-        "TIME_SPENT_ON_VIDEOS",
-        "QUIZ_ATTEMPTS",
-        "FORUM_PARTICIPATION_COUNT",
-        "LOGIN_FREQUENCY_PER_WEEK",
-        "DAYS_OLD" # Assuming days_old influences temporal patterns
-    ]
-    static_features = [
-        "AGE",
-        "GENDER",
-        "ACADEMIC_PROGRAM",
-        "YEAR_LEVEL",
-        "GPA",
-        "TIME_SPENT_ON_TEXT_MATERIALS",
-        "TIME_SPENT_ON_INTERACTIVE_ACTIVITIES",
-        "GROUP_ACTIVITY_PARTICIPATION",
-        "INDIVIDUAL_ACTIVITY_PREFERENCE",
-        "NOTE_TAKING_STYLE",
-        "PREFERENCE_FOR_VISUAL_MATERIALS",
-        "PREFERENCE_FOR_TEXTUAL_MATERIALS",
-        "TIME_TO_COMPLETE_ASSIGNMENTS",
-        "LEARNING_PATH_NAVIGATION",
-        "PROBLEM_SOLVING_PREFERENCE",
-        "RESPONSE_SPEED_IN_QUIZZES",
-        "ACCURACY_IN_DETAIL_ORIENTED_QUESTIONS",
-        "ACCURACY_IN_CONCEPTUAL_QUESTIONS",
-        "PREFERENCE_FOR_EXAMPLES",
-        "SELF_REFLECTION_ACTIVITY",
-        "VIDEO_PAUSE_AND_REPLAY_COUNT",
-        "QUIZ_REVIEW_FREQUENCY",
-        "SKIPPED_CONTENT_RATIO",
-        "AVERAGE_STUDY_SESSION_LENGTH"
-    ]
-
-
     for student_data in simulated_raw_data:
-        # Ensure 'DAYS_OLD' is correctly set from the request
-        student_data["DAYS_OLD"] = request.days_old
-
-        # Create a DataFrame with all expected columns and populate it with student_data.
-        # This ensures all columns the preprocessor expects are present, even if
-        # generate_realistic_student_data didn't explicitly provide them (they'll be NaN).
         input_df = pd.DataFrame([student_data]).reindex(columns=all_expected_preprocessor_cols, fill_value=np.nan)
 
-        # Convert boolean fields to numerical (0 or 1)
         for col in boolean_cols:
             if col in input_df.columns:
                 input_df[col] = input_df[col].astype(int)
 
         student_predictions = {}
         for target, model_pipeline in models.items():
-            # Pass the raw input_df to the model_pipeline.predict().
-            # The pipeline, now including LSTMFeatureExtractor and ColumnTransformer,
-            # will handle all preprocessing and feature engineering internally.
             prediction_result = model_pipeline.predict(input_df)
-
             student_predictions[target] = prediction_result[0].item()
 
-        # Add predictions and the days_old to the student data
         student_data.update(student_predictions)
-        predictions_list.append({k.lower(): v for k, v in student_data.items()})
+        
+        # Convert keys to lowercase for database storage and frontend consumption
+        processed_student_data = {k.lower(): v for k, v in student_data.items()}
+        predictions_list.append(processed_student_data)
 
-    # Save to MongoDB
     try:
-        simulated_students_collection = db["simulated_students"]
+        # Insert new students
         if predictions_list:
-            # When saving, convert keys back to uppercase for consistency with model training data
-            # and to allow predictions to be stored with original model target names.
-            # No, actually, save them as lowercase so they match the frontend's expectations.
-            # The model expects uppercase, but the DB can store lowercase and we'll convert on retrieve.
-            # This is simpler than converting back and forth.
             result = simulated_students_collection.insert_many(predictions_list)
             print(f"Inserted {len(result.inserted_ids)} simulated students into MongoDB.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save simulated students to database: {e}")
 
-    # Convert ObjectId to string for JSON serialization before returning
-    # The keys are already lowercase now.
     for student in predictions_list:
         if "_id" in student:
-            student["_id"] = str(student["_id"])
+            student["_id"] = str(student["_id"]) # Convert ObjectId to string
+            # Remove the _id field from the dictionary as it's already stringified and not needed
+            # The frontend should use student_id or _id_str if it needs the string representation
+            student.pop("_id", None)
     return {"message": "Students simulated and saved successfully", "simulated_students": predictions_list}
+
+@router.post("/update-days-old")
+async def update_days_old_endpoint(request: UpdateDaysOldRequest):
+    if not models:
+        raise HTTPException(status_code=500, detail="AI Models not loaded. Cannot update learning styles.")
+    
+    simulated_students_collection = db["simulated_students"]
+    updated_students_list = []
+
+    all_expected_preprocessor_cols = [f.upper() for f in numerical_features] + \
+                                     [f.upper() for f in categorical_features]
+
+    for student_id in request.student_ids:
+        existing_student = simulated_students_collection.find_one({"student_id": student_id})
+        if not existing_student:
+            print(f"Student with ID {student_id} not found, skipping update.")
+            continue
+
+        existing_student_upper = {k.upper(): v for k, v in existing_student.items()}
+        
+        # Update DAYS_OLD and other dynamic features
+        existing_student_upper["DAYS_OLD"] += request.days_to_add
+        existing_student_upper["TIME_SPENT_ON_VIDEOS"] += random.randint(1, 5)
+        existing_student_upper["QUIZ_ATTEMPTS"] += random.randint(0, 2)
+        existing_student_upper["FORUM_PARTICIPATION_COUNT"] += random.randint(0, 1)
+        existing_student_upper["LOGIN_FREQUENCY_PER_WEEK"] += random.randint(0, 1)
+
+        input_df = pd.DataFrame([existing_student_upper]).reindex(columns=all_expected_preprocessor_cols, fill_value=np.nan)
+
+        for col in boolean_cols:
+            if col in input_df.columns:
+                input_df[col] = input_df[col].astype(int)
+
+        student_predictions = {}
+        for target, model_pipeline in models.items():
+            prediction_result = model_pipeline.predict(input_df)
+            student_predictions[target] = prediction_result[0].item()
+
+        existing_student_upper.update(student_predictions)
+        
+        # Convert _id (ObjectId) to string if it exists before converting to lowercase
+        if "_id" in existing_student_upper:
+            existing_student_upper["_id"] = str(existing_student_upper["_id"])
+        
+        processed_student_data = {k.lower(): v for k, v in existing_student_upper.items()}
+        # Remove the _id field from the dictionary as it's already stringified and not needed
+        # The frontend should use student_id or _id_str if it needs the string representation
+        processed_student_data.pop("_id", None)
+        updated_students_list.append(processed_student_data)
+
+        try:
+            simulated_students_collection.update_one(
+                {"student_id": student_id},
+                {"$set": processed_student_data}
+            )
+            print(f"Updated student {student_id} to {processed_student_data['days_old']} days old.")
+        except Exception as e:
+            print(f"Failed to update student {student_id} in database: {e}")
+            continue
+            
+    return {"message": f"Updated {len(updated_students_list)} students successfully.", "updated_students": updated_students_list}
 
 @router.delete("/delete-simulated-students")
 async def delete_simulated_students_endpoint(student_ids: List[str]):

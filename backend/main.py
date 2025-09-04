@@ -21,7 +21,6 @@ from sklearn.impute import SimpleImputer # Import SimpleImputer
 from sklearn.preprocessing import StandardScaler # Import StandardScaler
 from sklearn.pipeline import Pipeline # Import Pipeline
 
-
 class LSTMFeatureExtractor(BaseEstimator, TransformerMixin):
     def __init__(self, lstm_model, dynamic_features, embedding_size=10):
         self.lstm_model = lstm_model
