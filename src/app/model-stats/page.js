@@ -274,17 +274,17 @@ export default function ModelStatsPage() {
       {/* Cross-Validation Results Section (Using Line Chart for Accuracy over different targets) */}
       <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
         <h2 className="text-xl font-bold mb-3 text-electric-purple">Accuracy by Learning Style Dimension</h2>
-        <div className="h-[350px]"> {/* Explicit height for the chart container */}
+        <div className="h-[500px]"> {/* Explicit height for the chart container */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={Object.keys(modelStats).map(key => ({
                 name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 accuracy: parseFloat(formatPercentage(modelStats[key].test_accuracy, 2)) || 0
               }))}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
-              <XAxis dataKey="name" stroke="#9CA3AF" interval="preserveStartEnd" angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" stroke="#9CA3AF" interval="equidistantPreserveStart" angle={-30} textAnchor="end" height={80} />
               <YAxis stroke="#9CA3AF" domain={[0, 100]} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
@@ -353,12 +353,12 @@ export default function ModelStatsPage() {
                     </tr>
                   </thead>
                   <tbody className="text-gray-300 text-sm font-light">
-                    <tr className="border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out">
+                    <tr className="border-b border-transparent bg-charcoal-elevated transition-all duration-200 ease-in-out">
                       <td className="px-2 py-1 font-medium">Actual 0</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[0][0]}</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-rose-danger font-bold">{confusionMatrices[target].confusion_matrix[0][1]}</td>
                     </tr>
-                    <tr className="border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out">
+                    <tr className="border-b border-transparent bg-charcoal-elevated transition-all duration-200 ease-in-out">
                       <td className="px-2 py-1 font-medium">Actual 1</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][0]}</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][1]}</td>
@@ -574,10 +574,10 @@ export default function ModelStatsPage() {
                 name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 accuracy: parseFloat(formatPercentage(modelStats[key].test_accuracy, 2)) || 0
               }))}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
-              <XAxis dataKey="name" stroke="#9CA3AF" interval="preserveStartEnd" angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" stroke="#9CA3AF" interval="equidistantPreserveStart" angle={-30} textAnchor="end" height={80} />
               <YAxis stroke="#9CA3AF" domain={[0, 100]} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
@@ -647,12 +647,12 @@ export default function ModelStatsPage() {
                   </thead>
                   <tbody className="text-gray-300 text-sm font-light">
                     <tr className="border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out">
-                      <td className="px-2 py-1 font-medium">Actual 0</td>
+                      <td className="px-2 py-1 font-medium bg-charcoal-elevated">Actual 0</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[0][0]}</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-rose-danger font-bold">{confusionMatrices[target].confusion_matrix[0][1]}</td>
                     </tr>
-                    <tr className="border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out">
-                      <td className="px-2 py-1 font-medium">Actual 1</td>
+                    <tr className="border-b border-transparent bg-charcoal-elevated transition-all duration-200 ease-in-out">
+                      <td className="px-2 py-1 font-medium bg-charcoal-elevated">Actual 1</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][0]}</td>
                       <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][1]}</td>
                     </tr>
