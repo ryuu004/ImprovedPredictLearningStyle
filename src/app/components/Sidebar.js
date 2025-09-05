@@ -59,7 +59,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         </button>
       </div>
 
-      <div className={`flex items-center mb-8 p-2 rounded-lg bg-charcoal-elevated bg-opacity-30 shadow-inner ${isCollapsed ? 'justify-center w-full h-[60px]' : 'space-x-3'}`}>
+      <div className={`flex items-center mb-8 p-2 rounded-lg bg-charcoal-elevated bg-opacity-30 shadow-inner ${isCollapsed ? 'justify-center w-full py-3' : 'space-x-3'}`}>
         <FaUserCircle className="text-4xl text-electric-purple" />
         {!isCollapsed && (
           <div className="flex flex-col">
@@ -89,27 +89,31 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                   }
                   focus:outline-none focus:ring-2 focus:ring-electric-purple focus:ring-opacity-75
                   glass-effect
-                  ${isCollapsed ? 'w-full h-[60px] justify-center' : 'py-3 px-4'}
+                  ${isCollapsed ? 'w-full py-3 justify-center' : 'py-3 px-4'}
                   `}
                 >
-                  <motion.span
-                    className={`${isCollapsed ? 'text-2xl' : 'mr-3 text-2xl'}`}
-                    animate={{ opacity: 1 }} // Icon always visible
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Icon />
-                  </motion.span>
-                  {/* Text visibility controlled by width and overflow */}
-                  {!isCollapsed && (
+                  <motion.div layout className={`flex items-center ${!isCollapsed ? 'space-x-3' : ''}`}>
                     <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.1, duration: 0.2 }}
-                      className="flex-1 whitespace-nowrap"
+                      className="text-2xl"
+                      layout
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                    >
+                      <Icon />
+                    </motion.span>
+                    <motion.span
+                      initial={false}
+                      animate={{
+                        width: isCollapsed ? 0 : 'auto',
+                        opacity: isCollapsed ? 0 : 1,
+                        marginLeft: isCollapsed ? 0 : '0.75rem',
+                        display: isCollapsed ? 'none' : 'block', // Hide completely when collapsed
+                      }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="flex-1 whitespace-nowrap overflow-hidden"
                     >
                       {item.name}
                     </motion.span>
-                  )}
+                  </motion.div>
                 </Link>
                 {isActive && (
                   <motion.div
