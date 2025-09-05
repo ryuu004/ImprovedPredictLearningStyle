@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 export default function SimulatePage() {
   const [numStudents, setNumStudents] = useState(1);
   const [daysOld, setDaysOld] = useState(0); // New state for days old
+  const [selectedModel, setSelectedModel] = useState('random_forest'); // Default model
   const [simulatedStudents, setSimulatedStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("");
@@ -47,7 +48,7 @@ export default function SimulatePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ num_students: numStudents, days_old: daysOld }), // Include days_old
+        body: JSON.stringify({ num_students: numStudents, days_old: daysOld, model_type: selectedModel }), // Include days_old and model_type
       });
 
       if (!response.ok) {
@@ -191,6 +192,18 @@ export default function SimulatePage() {
                   min="0"
                   className="w-full px-3 py-1.5 rounded-form bg-charcoal-elevated border border-transparent text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
                 />
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="modelSelect" className="text-lg text-gray-300 mb-2">Prediction Model:</label>
+                <select
+                  id="modelSelect"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-form bg-charcoal-elevated border border-transparent text-white focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
+                >
+                  <option value="random_forest">Random Forest</option>
+                  <option value="xgboost">XGBoost</option>
+                </select>
               </div>
             </div>
             <button

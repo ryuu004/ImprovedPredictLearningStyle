@@ -40,39 +40,53 @@ lstm_model = None # Placeholder for LSTM model
 feature_names = None
 feature_importances_dict = {"random_forest": {}, "xgboost": {}}
 model_performance_metrics = {"random_forest": {}, "xgboost": {}}
-categorical_features = [
-    'NOTE_TAKING_STYLE',
-    'PROBLEM_SOLVING_PREFERENCE',
-    'LEARNING_PATH_NAVIGATION',
-    'RESPONSE_SPEED_IN_QUIZZES'
+
+# Define feature lists
+dynamic_features = [
+    "TIME_SPENT_ON_VIDEOS",
+    "QUIZ_ATTEMPTS",
+    "FORUM_PARTICIPATION_COUNT",
+    "LOGIN_FREQUENCY_PER_WEEK",
+    "DAYS_OLD"
 ]
-target_labels = [
-    'ACTIVE_VS_REFLECTIVE',
-    'SENSING_VS_INTUITIVE',
-    'VISUAL_VS_VERBAL',
-    'SEQUENTIAL_VS_GLOBAL'
-]
-boolean_cols = []
-numerical_features = [
+
+numerical_static_features = [
     'GPA',
-    'TIME_SPENT_ON_VIDEOS',
     'TIME_SPENT_ON_TEXT_MATERIALS',
     'TIME_SPENT_ON_INTERACTIVE_ACTIVITIES',
-    'FORUM_PARTICIPATION_COUNT',
     'GROUP_ACTIVITY_PARTICIPATION',
     'INDIVIDUAL_ACTIVITY_PREFERENCE',
-    'QUIZ_ATTEMPTS',
     'TIME_TO_COMPLETE_ASSIGNMENTS',
     'ACCURACY_IN_DETAIL_ORIENTED_QUESTIONS',
     'ACCURACY_IN_CONCEPTUAL_QUESTIONS',
     'VIDEO_PAUSE_AND_REPLAY_COUNT',
     'QUIZ_REVIEW_FREQUENCY',
     'SKIPPED_CONTENT_RATIO',
-    'LOGIN_FREQUENCY_PER_WEEK',
     'AVERAGE_STUDY_SESSION_LENGTH'
 ]
 
-# Define the preprocessor globally
+categorical_features = [
+    'NOTE_TAKING_STYLE',
+    'PROBLEM_SOLVING_PREFERENCE',
+    'LEARNING_PATH_NAVIGATION',
+    'RESPONSE_SPEED_IN_QUIZZES'
+]
+
+target_labels = [
+    'ACTIVE_VS_REFLECTIVE',
+    'SENSING_VS_INTUITIVE',
+    'VISUAL_VS_VERBAL',
+    'SEQUENTIAL_VS_GLOBAL'
+]
+
+boolean_cols = [
+    'PREFERENCE_FOR_VISUAL_MATERIALS',
+    'PREFERENCE_FOR_TEXTUAL_MATERIALS',
+    'PREFERENCE_FOR_EXAMPLES',
+    'SELF_REFLECTION_ACTIVITY'
+]
+
+# Define the preprocessor globally (for use in predict, etc.)
 numerical_transformer = Pipeline(steps=[
     ('imputer', SimpleImputer(strategy='mean')),
     ('scaler', StandardScaler())
@@ -80,7 +94,7 @@ numerical_transformer = Pipeline(steps=[
 
 preprocessor_obj = ColumnTransformer(
     transformers=[
-        ('num', numerical_transformer, numerical_features),
+        ('num', numerical_transformer, numerical_static_features),
         ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
     ],
     remainder='drop'
