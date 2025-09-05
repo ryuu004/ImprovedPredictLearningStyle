@@ -24,6 +24,7 @@ module.exports = {
       colors: {
         'deep-space-navy': '#0B0B1A',
         'charcoal-elevated': '#151626',
+        'charcoal-hover': '#1F2033',
         'charcoal-light': '#36454F',
         'charcoal-dark': '#2B333E',
         'electric-purple': '#8B5CF6',
