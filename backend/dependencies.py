@@ -6,6 +6,24 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline # Added import
 from sklearn.preprocessing import StandardScaler # Added import
+import numpy as np # Import numpy for type checking
+from typing import Any # Import Any for type hinting
+
+def convert_numpy_types(obj: Any) -> Any:
+    """
+    Recursively converts numpy types within a dictionary or list to native Python types.
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.float32, np.float64, np.int32, np.int64, np.generic)):
+        return obj.item()
+    elif isinstance(obj, dict):
+        # Convert integer keys to strings for class_distribution
+        return {str(k): convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(elem) for elem in obj]
+    else:
+        return obj
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -17,14 +35,16 @@ db = client["ml_database"]
 students_collection = db["training_data"]
 
 # Global variables for models, feature names, and feature importances
-models = {}
+models = {"random_forest": {}, "xgboost": {}}
 lstm_model = None # Placeholder for LSTM model
 feature_names = None
-feature_importances_dict = {}
-model_performance_metrics = {}
+feature_importances_dict = {"random_forest": {}, "xgboost": {}}
+model_performance_metrics = {"random_forest": {}, "xgboost": {}}
 categorical_features = [
     'NOTE_TAKING_STYLE',
-    'PROBLEM_SOLVING_PREFERENCE'
+    'PROBLEM_SOLVING_PREFERENCE',
+    'LEARNING_PATH_NAVIGATION',
+    'RESPONSE_SPEED_IN_QUIZZES'
 ]
 target_labels = [
     'ACTIVE_VS_REFLECTIVE',

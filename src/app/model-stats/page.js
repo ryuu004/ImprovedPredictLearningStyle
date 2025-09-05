@@ -8,39 +8,23 @@ import {
 import { useSpring, animated } from '@react-spring/web';
 
 export default function ModelStatsPage() {
-  const [modelStats, setModelStats] = useState(null);
-  const [featureImportances, setFeatureImportances] = useState(null);
-  const [confusionMatrices, setConfusionMatrices] = useState(null); // New state for confusion matrices
+  const [selectedModelType, setSelectedModelType] = useState('random_forest'); // Default to Random Forest
+  const [modelData, setModelData] = useState(null); // Combined state for all model data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const [statsResponse, importancesResponse, confusionMatrixResponse] = await Promise.all([
-          fetch('http://127.0.0.1:8000/model-performance'),
-          fetch('http://127.0.0.1:8000/feature-importances'),
-          fetch('http://127.0.0.1:8000/confusion-matrix') // Fetch confusion matrix data
-        ]);
-
-        if (!statsResponse.ok) {
-          throw new Error(`HTTP error! status: ${statsResponse.status}`);
+        const response = await fetch(`http://127.0.0.1:8000/model-metrics?model_type=${selectedModelType}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        if (!importancesResponse.ok) {
-          throw new Error(`HTTP error! status: ${importancesResponse.status}`);
-        }
-
-        const statsData = await statsResponse.json();
-        const importancesData = await importancesResponse.json();
-        const confusionMatrixData = await confusionMatrixResponse.json(); // Parse confusion matrix data
-
-        console.log('Fetched modelStats:', JSON.stringify(statsData, null, 2));
-        console.log('Fetched featureImportances:', JSON.stringify(importancesData, null, 2));
-        console.log('Fetched confusionMatrices:', JSON.stringify(confusionMatrixData, null, 2));
-
-        setModelStats(statsData);
-        setFeatureImportances(importancesData);
-        setConfusionMatrices(confusionMatrixData); // Set confusion matrix data
+        const data = await response.json();
+        console.log(`Fetched modelData for ${selectedModelType}:`, JSON.stringify(data, null, 2));
+        setModelData(data);
       } catch (e) {
         setError(e);
       } finally {
@@ -49,28 +33,7 @@ export default function ModelStatsPage() {
     };
 
     fetchData();
-  }, []);
-
-  if (loading) return (
-    <div className="min-h-screen bg-deep-space-navy text-white flex items-center justify-center p-4">
-      <p>Loading model stats data...</p>
-    </div>
-  );
-
-  if (error) return (
-    <div className="min-h-screen bg-dark-navy text-white flex items-center justify-center">
-      <p className="text-red-500">Error: {error.message}</p>
-    </div>
-  );
-
-  // Assuming a single model for now, you might want to iterate if multiple models are returned
-  // For overall display, we can use the first model's data or an aggregate if needed
-  const firstModelKey = Object.keys(modelStats)[0];
-  const model = modelStats[firstModelKey]; // Still use first model for overall stats
-
-  if (!model) {
-    return <div className="min-h-screen bg-gray-900 text-white p-8 flex justify-center items-center text-2xl">No model data available.</div>;
-  }
+  }, [selectedModelType]); // Re-fetch data when selectedModelType changes
 
   const calculateStrokeDashoffset = (value) => {
     const numericValue = parseFloat(value);
@@ -129,18 +92,83 @@ export default function ModelStatsPage() {
     rippleEffect(event);
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-deep-space-navy text-white flex items-center justify-center p-4">
+      <p>Loading model stats data...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-dark-navy text-white flex items-center justify-center">
+      <p className="text-red-500">Error: {error.message}</p>
+    </div>
+  );
+
+  if (!modelData || !modelData.model_stats || Object.keys(modelData.model_stats).length === 0) {
+    return <div className="min-h-screen bg-gray-900 text-white p-8 flex justify-center items-center text-2xl">No model data available for {selectedModelType}.</div>;
+  }
+
+  const calculateOverallMetrics = (modelStats) => {
+    const metrics = { accuracy: [], precision: [], recall: [], f1_score: [] };
+    Object.values(modelStats).forEach(stat => {
+      metrics.accuracy.push(stat.test_accuracy);
+      metrics.precision.push(stat.precision);
+      metrics.recall.push(stat.recall);
+      metrics.f1_score.push(stat.f1_score);
+    });
+
+    const average = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+    return {
+      test_accuracy: average(metrics.accuracy),
+      precision: average(metrics.precision),
+      recall: average(metrics.recall),
+      f1_score: average(metrics.f1_score),
+      model_type: Object.values(modelStats)[0]?.model_type || selectedModelType,
+      last_trained: Object.values(modelStats)[0]?.last_trained || 'N/A',
+      dataset_size: Object.values(modelStats)[0]?.dataset_size || 0,
+      features_used: Object.values(modelStats)[0]?.features_used || 0,
+    };
+  };
+
+  const overallMetrics = modelData ? calculateOverallMetrics(modelData.model_stats) : null;
+  const featureImportances = modelData.feature_importances;
+  const confusionMatrices = modelData.confusion_matrices;
+
   return (
     <div className="bg-deep-space-navy text-white p-2 flex flex-col overflow-y-auto min-h-screen">
+      {/* Model Type Selection */}
+      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
+        <h2 className="text-xl font-bold mb-3 text-electric-purple">Select Model Type</h2>
+        <div className="flex space-x-4">
+          <button
+            className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${
+              selectedModelType === 'random_forest' ? 'bg-electric-purple text-white' : 'bg-charcoal-light text-gray-200 hover:bg-charcoal-dark'
+            }`}
+            onClick={() => setSelectedModelType('random_forest')}
+          >
+            Random Forest
+          </button>
+          <button
+            className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${
+              selectedModelType === 'xgboost' ? 'bg-electric-purple text-white' : 'bg-charcoal-light text-gray-200 hover:bg-charcoal-dark'
+            }`}
+            onClick={() => setSelectedModelType('xgboost')}
+          >
+            XGBoost
+          </button>
+        </div>
+      </div>
 
       {/* Model Overview Section */}
       <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Model Overview</h2>
+        <h2 className="text-xl font-bold mb-3 text-electric-purple">Model Overview ({selectedModelType.replace('_', ' ').toUpperCase()})</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* Overall Accuracy */}
           <div className="charcoal-elevated p-3 rounded-card shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
             <h3 className="font-semibold mb-2 text-electric-purple">Overall Accuracy</h3>
             <div className="text-center">
-              <p className="text-5xl font-extrabold text-emerald-success"><AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy))} /></p>
+              <p className="text-5xl font-extrabold text-emerald-success"><AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.test_accuracy))} /></p>
               <span className="text-xs text-gray-400 mt-2">Excellent Performance</span>
             </div>
           </div>
@@ -149,10 +177,10 @@ export default function ModelStatsPage() {
           <div className="charcoal-elevated p-3 rounded-card shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
             <h3 className="font-semibold mb-2 text-electric-purple">Model Details</h3>
             <div className="space-y-1 text-sm">
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Model Type:</span> <span className="text-emerald-success">{model.model_type}</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Last Trained:</span> <span className="text-emerald-success">{model.last_trained}</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Dataset Size:</span> <span className="text-emerald-success">{model.dataset_size} samples</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Features Used:</span> <span className="text-emerald-success">{model.features_used}</span></p>
+              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Model Type:</span> <span className="text-emerald-success">{overallMetrics.model_type}</span></p>
+              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Last Trained:</span> <span className="text-emerald-success">{overallMetrics.last_trained}</span></p>
+              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Dataset Size:</span> <span className="text-emerald-success">{overallMetrics.dataset_size} samples</span></p>
+              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Features Used:</span> <span className="text-emerald-success">{overallMetrics.features_used}</span></p>
             </div>
           </div>
 
@@ -163,7 +191,7 @@ export default function ModelStatsPage() {
               <div className="relative w-24 h-24 flex items-center justify-center">
                 <svg className="w-full h-full absolute">
                   <circle className="text-charcoal-elevated" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                  <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                  <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(overallMetrics.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
                   <defs>
                     <linearGradient id="gradientAccuracy" x1="0%" y1="0%" x2="100%" y2="0%">
                       <stop offset="0%" stopColor="#8B5CF6" />
@@ -172,7 +200,7 @@ export default function ModelStatsPage() {
                   </defs>
                 </svg>
                 <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-emerald-success">
-                  <AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy, 0))} />
+                  <AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.test_accuracy, 0))} />
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-2">Operational & Stable</p>
@@ -190,7 +218,7 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(overallMetrics.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
                 <defs>
                   <linearGradient id="gradientAccuracy" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#8B5CF6" />
@@ -199,7 +227,7 @@ export default function ModelStatsPage() {
                 </defs>
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-emerald-success">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy))} />
+                <AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.test_accuracy))} />
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Accuracy</p>
@@ -210,7 +238,7 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.precision || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(overallMetrics.precision || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
                 <defs>
                   <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#8B5CF6" />
@@ -219,7 +247,7 @@ export default function ModelStatsPage() {
                 </defs>
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.precision))} />
+                <AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.precision))} />
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Precision</p>
@@ -230,7 +258,7 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.recall || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(overallMetrics.recall || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
                 <defs>
                   <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#8B5CF6" />
@@ -239,7 +267,7 @@ export default function ModelStatsPage() {
                 </defs>
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.recall))} />
+                <AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.recall))} />
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">Recall</p>
@@ -250,7 +278,7 @@ export default function ModelStatsPage() {
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full absolute">
                 <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.f1_score || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
+                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(overallMetrics.f1_score || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
                 <defs>
                   <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#8B5CF6" />
@@ -259,7 +287,7 @@ export default function ModelStatsPage() {
                 </defs>
               </svg>
               <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.f1_score))} />
+                <AnimatedPercentage value={parseFloat(formatPercentage(overallMetrics.f1_score))} />
               </div>
             </div>
             <p className="text-sm mt-1 text-gray-300">F1-Score</p>
@@ -273,9 +301,9 @@ export default function ModelStatsPage() {
         <div className="h-[500px]"> {/* Explicit height for the chart container */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={Object.keys(modelStats).map(key => ({
+              data={Object.keys(modelData.model_stats).map(key => ({
                 name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                accuracy: parseFloat(formatPercentage(modelStats[key].test_accuracy, 2)) || 0
+                accuracy: parseFloat(formatPercentage(modelData.model_stats[key].test_accuracy, 2)) || 0
               }))}
               margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
             >
@@ -306,7 +334,7 @@ export default function ModelStatsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               layout="vertical"
-              data={Object.entries(featureImportances['ACTIVE_VS_REFLECTIVE']) // Default to first model for overall feature importance
+              data={Object.entries(featureImportances[Object.keys(featureImportances)[0]]) // Use the first key of featureImportances
                 .sort(([, a], [, b]) => b - a)
                 .slice(0, 10) // Display top 10 features
                 .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: parseFloat(formatPercentage(value, 2)) || 0 }))}
@@ -375,15 +403,15 @@ export default function ModelStatsPage() {
       <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
         <h2 className="text-xl font-bold mb-3 text-electric-purple">Model Comparison</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {Object.keys(modelStats).map(target => (
+          {Object.keys(modelData.model_stats).map(target => (
             <div key={target} className="charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-in-out glow-on-hover" onMouseDown={rippleEffect}>
               <h3 className="text-md font-semibold mb-2 text-center text-electric-purple">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
               <div className="space-y-1 text-xs">
-                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].test_accuracy)}%</span></p>
-                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].precision)}%</span></p>
-                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].recall)}%</span></p>
-                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].f1_score)}%</span></p>
-                <p className="flex justify-between"><span>Dataset Size:</span> <span className="font-medium text-gray-300">{modelStats[target].dataset_size}</span></p>
+                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelData.model_stats[target].test_accuracy)}%</span></p>
+                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelData.model_stats[target].precision)}%</span></p>
+                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelData.model_stats[target].recall)}%</span></p>
+                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelData.model_stats[target].f1_score)}%</span></p>
+                <p className="flex justify-between"><span>Dataset Size:</span> <span className="font-medium text-gray-300">{modelData.model_stats[target].dataset_size}</span></p>
               </div>
             </div>
           ))}
@@ -406,306 +434,13 @@ export default function ModelStatsPage() {
               </tr>
             </thead>
             <tbody className="text-gray-300 text-sm font-light">
-              {Object.keys(modelStats).map((target, index) => (
+              {Object.keys(modelData.model_stats).map((target, index) => (
                 <tr key={target} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out`}>
                   <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].test_accuracy, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].recall, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].f1_score, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{modelStats[target].dataset_size}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="bg-deep-space-navy text-white p-2 flex flex-col overflow-y-auto min-h-screen">
-
-      {/* Model Overview Section */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Model Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {/* Overall Accuracy */}
-          <div className="charcoal-elevated p-3 rounded-card shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
-            <h3 className="font-semibold mb-2 text-electric-purple">Overall Accuracy</h3>
-            <div className="text-center">
-              <p className="text-5xl font-extrabold text-emerald-success"><AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy))} /></p>
-              <span className="text-xs text-gray-400 mt-2">Excellent Performance</span>
-            </div>
-          </div>
-
-          {/* Model Details */}
-          <div className="charcoal-elevated p-3 rounded-card shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
-            <h3 className="font-semibold mb-2 text-electric-purple">Model Details</h3>
-            <div className="space-y-1 text-sm">
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Model Type:</span> <span className="text-emerald-success">{model.model_type}</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Last Trained:</span> <span className="text-emerald-success">{model.last_trained}</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Dataset Size:</span> <span className="text-emerald-success">{model.dataset_size} samples</span></p>
-              <p className="flex justify-between items-center"><span className="font-medium text-gray-300">Features Used:</span> <span className="text-emerald-success">{model.features_used}</span></p>
-            </div>
-          </div>
-
-          {/* Model Health Status */}
-          <div className="charcoal-elevated p-3 rounded-card shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
-            <h3 className="font-semibold mb-2 text-electric-purple">Model Health</h3>
-            <div className="flex flex-col items-center justify-center flex-1">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full absolute">
-                  <circle className="text-charcoal-elevated" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                  <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
-                  <defs>
-                    <linearGradient id="gradientAccuracy" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#8B5CF6" />
-                      <stop offset="100%" stopColor="#10B981" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-emerald-success">
-                  <AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy, 0))} />
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Operational & Stable</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics Visualization Area */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Performance Metrics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Gauge Chart for Accuracy */}
-          <div className="flex flex-col items-center charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
-            <div className="relative w-24 h-24 flex items-center justify-center">
-              <svg className="w-full h-full absolute">
-                <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-emerald-success" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(formatPercentage(model.test_accuracy, 0)))} strokeLinecap="round" stroke="url(#gradientAccuracy)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
-                <defs>
-                  <linearGradient id="gradientAccuracy" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#10B981" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-emerald-success">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.test_accuracy))} />
-              </div>
-            </div>
-            <p className="text-sm mt-1 text-gray-300">Accuracy</p>
-          </div>
-
-          {/* Gauge Chart for Precision */}
-          <div className="flex flex-col items-center charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-in-out glow-on-hover" onMouseDown={rippleEffect}>
-            <div className="relative w-24 h-24 flex items-center justify-center">
-              <svg className="w-full h-full absolute">
-                <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.precision || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
-                <defs>
-                  <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#A78BFA" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.precision))} />
-              </div>
-            </div>
-            <p className="text-sm mt-1 text-gray-300">Precision</p>
-          </div>
-
-          {/* Gauge Chart for Recall */}
-          <div className="flex flex-col items-center charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-in-out glow-on-hover" onMouseDown={rippleEffect}>
-            <div className="relative w-24 h-24 flex items-center justify-center">
-              <svg className="w-full h-full absolute">
-                <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.recall || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
-                <defs>
-                  <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#A78BFA" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.recall))} />
-              </div>
-            </div>
-            <p className="text-sm mt-1 text-gray-300">Recall</p>
-          </div>
-
-          {/* Gauge Chart for F1-Score */}
-          <div className="flex flex-col items-center charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-in-out glow-on-hover" onMouseDown={rippleEffect}>
-            <div className="relative w-24 h-24 flex items-center justify-center">
-              <svg className="w-full h-full absolute">
-                <circle className="text-deep-space-navy" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50%" cy="50%" />
-                <circle className="text-electric-purple" strokeWidth="8" strokeDasharray="251.32" strokeDashoffset={calculateStrokeDashoffset(parseFloat(model.f1_score || 0) * 100)} strokeLinecap="round" stroke="url(#gradientPurple)" fill="transparent" r="40" cx="50%" cy="50%" transform="rotate(-90 48 48)" />
-                <defs>
-                  <linearGradient id="gradientPurple" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#A78BFA" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute w-full h-full flex items-center justify-center text-xl font-bold text-electric-purple">
-                <AnimatedPercentage value={parseFloat(formatPercentage(model.f1_score))} />
-              </div>
-            </div>
-            <p className="text-sm mt-1 text-gray-300">F1-Score</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Cross-Validation Results Section (Using Line Chart for Accuracy over different targets) */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Accuracy by Learning Style Dimension</h2>
-        <div className="h-[350px]"> {/* Explicit height for the chart container */}
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={Object.keys(modelStats).map(key => ({
-                name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                accuracy: parseFloat(formatPercentage(modelStats[key].test_accuracy, 2)) || 0
-              }))}
-              margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
-              <XAxis dataKey="name" stroke="#9CA3AF" interval="equidistantPreserveStart" angle={-30} textAnchor="end" height={80} />
-              <YAxis stroke="#9CA3AF" domain={[0, 100]} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
-                labelStyle={{ color: '#9CA3AF' }}
-              />
-              <Legend wrapperStyle={{ color: '#E5E7EB' }} />
-              <defs>
-                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#8B5CF6" />
-                  <stop offset="100%" stopColor="#6C2BD9" />
-                </linearGradient>
-              </defs>
-              <Line type="monotone" dataKey="accuracy" stroke="url(#lineGradient)" activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Feature Importance Visualization (Using Bar Chart) */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Feature Importance (Overall)</h2>
-        <div className="h-[350px]"> {/* Explicit height for the chart container */}
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={Object.entries(featureImportances['ACTIVE_VS_REFLECTIVE']) // Default to first model for overall feature importance
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10) // Display top 10 features
-                .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: parseFloat(formatPercentage(value, 2)) || 0 }))}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
-              <XAxis type="number" stroke="#9CA3AF" />
-              <YAxis type="category" dataKey="name" stroke="#9CA3AF" width={180} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
-                labelStyle={{ color: '#9CA3AF' }}
-              />
-              <Legend wrapperStyle={{ color: '#E5E7EB' }} />
-              <defs>
-                <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#8B5CF6" />
-                  <stop offset="100%" stopColor="#6C2BD9" />
-                </linearGradient>
-              </defs>
-              <Bar dataKey="value" fill="url(#barGradient)" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Confusion Matrix Heatmap */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Confusion Matrix</h2>
-        {confusionMatrices && Object.keys(confusionMatrices).length > 0 ? (
-          <div className="overflow-x-auto overflow-y-auto relative rounded-card border border-transparent" style={{ maxHeight: '400px' }}>
-            {Object.keys(confusionMatrices).map(target => (
-              <div key={target} className="mb-4 charcoal-elevated p-3 rounded-card shadow-lg border border-transparent hover:shadow-xl transition-all duration-300 ease-in-out group relative overflow-hidden transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
-                <h3 className="text-md font-semibold mb-2 text-gray-300">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
-                <table className="w-full text-left table-auto table-compact">
-                  <thead className="bg-charcoal-elevated sticky top-0 border-b border-transparent">
-                    <tr>
-                      <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tl-card"></th>
-                      <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">Predicted 0</th>
-                      <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tr-card">Predicted 1</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300 text-sm font-light">
-                    <tr className="border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out">
-                      <td className="px-2 py-1 font-medium bg-charcoal-elevated">Actual 0</td>
-                      <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[0][0]}</td>
-                      <td className="px-2 py-1 bg-charcoal-elevated text-rose-danger font-bold">{confusionMatrices[target].confusion_matrix[0][1]}</td>
-                    </tr>
-                    <tr className="border-b border-transparent bg-charcoal-elevated transition-all duration-200 ease-in-out">
-                      <td className="px-2 py-1 font-medium bg-charcoal-elevated">Actual 1</td>
-                      <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][0]}</td>
-                      <td className="px-2 py-1 bg-charcoal-elevated text-emerald-success font-bold">{confusionMatrices[target].confusion_matrix[1][1]}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
-            No Confusion Matrix data available.
-          </div>
-        )}
-      </div>
-
-      {/* Model Comparison Section */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Model Comparison</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {Object.keys(modelStats).map(target => (
-            <div key={target} className="charcoal-elevated rounded-card p-2 shadow-lg transform transition-transform duration-300 ease-in-out hover:scale-102 cursor-pointer relative overflow-hidden group transition-all duration-300 ease-in-out glow-on-hover" onMouseDown={rippleEffect}>
-              <h3 className="text-md font-semibold mb-2 text-center text-electric-purple">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
-              <div className="space-y-1 text-xs">
-                <p className="flex justify-between"><span>Accuracy:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].test_accuracy)}%</span></p>
-                <p className="flex justify-between"><span>Precision:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].precision)}%</span></p>
-                <p className="flex justify-between"><span>Recall:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].recall)}%</span></p>
-                <p className="flex justify-between"><span>F1-Score:</span> <span className="font-medium text-emerald-success">{formatPercentage(modelStats[target].f1_score)}%</span></p>
-                <p className="flex justify-between"><span>Dataset Size:</span> <span className="font-medium text-gray-300">{modelStats[target].dataset_size}</span></p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-
-      {/* Classification Report Table (Placeholder with enhanced styling) */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Classification Report</h2>
-        <div className="overflow-x-auto overflow-y-auto relative rounded-card border border-transparent" style={{ maxHeight: '400px' }}>
-          <table className="w-full text-left table-auto table-compact">
-            <thead className="bg-charcoal-elevated sticky top-0 border-b border-transparent">
-              <tr>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tl-card">Class</th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">Precision</th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">Recall</th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">F1-Score</th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">Support</th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-300 text-sm font-light">
-              {Object.keys(modelStats).map((target, index) => (
-                <tr key={target} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out`}>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].test_accuracy, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].recall, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelStats[target].f1_score, 2)}</td>
-                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{modelStats[target].dataset_size}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelData.model_stats[target].precision, 2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelData.model_stats[target].recall, 2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{formatPercentage(modelData.model_stats[target].f1_score, 2)}</td>
+                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-300">{modelData.model_stats[target].dataset_size}</td>
                 </tr>
               ))}
             </tbody>

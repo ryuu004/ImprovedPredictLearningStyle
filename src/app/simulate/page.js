@@ -162,212 +162,216 @@ export default function SimulatePage() {
 
   return (
     <>
-      <div className="bg-deep-space-navy text-white p-2 h-screen flex flex-col overflow-hidden">
-      <h1 className="text-3xl font-bold mb-6 text-electric-purple">Simulate Student Data</h1>
+      <div className="bg-deep-space-navy text-white p-2 flex flex-col overflow-y-auto min-h-screen">
+        {/* Main content area */}
+        <div className="flex-grow flex flex-col overflow-y-auto">
 
-      {/* Simulation Panel */}
-      <div className="glass-morphism p-3 rounded-card shadow-elevation-1 mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-elevation-3 transition-all duration-300 ease-in-out">
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Simulation Panel</h2>
-        <div className="flex items-center space-x-4 mb-4">
-          <label htmlFor="numStudents" className="text-lg text-gray-300">Number of Students:</label>
-          <input
-            type="number"
-            id="numStudents"
-            value={numStudents}
-            onChange={(e) => setNumStudents(Math.max(1, parseInt(e.target.value) || 1))}
-            min="1"
-            className="w-24 p-2 rounded-form bg-charcoal-elevated border border-transparent text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
-          />
-        </div>
-        <div className="flex items-center space-x-4">
-          <label htmlFor="daysOld" className="text-lg text-gray-300">Days Old for LSTM:</label>
-          <input
-            type="number"
-            id="daysOld"
-            value={daysOld}
-            onChange={(e) => setDaysOld(Math.max(0, parseInt(e.target.value) || 0))}
-            min="0"
-            className="w-24 p-2 rounded-form bg-charcoal-elevated border border-transparent text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
-          />
-          <button
-            onClick={handleSimulate}
-            disabled={loading}
-            className="px-6 py-2 rounded-button bg-electric-purple text-white font-semibold hover:bg-electric-purple-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1"
-          >
-            {loading ? loadingMessage : "Simulate"}
-          </button>
-        </div>
-        {loading && <p className="mt-4 text-electric-purple">{loadingMessage}</p>}
-      </div>
+          {/* Simulation Panel */}
+          <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
+            <h2 className="text-xl font-bold mb-3 text-electric-purple">Simulation Panel</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="flex flex-col">
+                <label htmlFor="numStudents" className="text-lg text-gray-300 mb-2">Number of Students:</label>
+                <input
+                  type="number"
+                  id="numStudents"
+                  value={numStudents}
+                  onChange={(e) => setNumStudents(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                  className="w-full px-3 py-1.5 rounded-form bg-charcoal-elevated border border-transparent text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="daysOld" className="text-lg text-gray-300 mb-2">Days Old for LSTM:</label>
+                <input
+                  type="number"
+                  id="daysOld"
+                  value={daysOld}
+                  onChange={(e) => setDaysOld(Math.max(0, parseInt(e.target.value) || 0))}
+                  min="0"
+                  className="w-full px-3 py-1.5 rounded-form bg-charcoal-elevated border border-transparent text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-electric-purple focus:border-electric-purple transition-all duration-300 ease-in-out text-sm shadow-inner"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleSimulate}
+              disabled={loading}
+              className="w-full py-3 rounded-button bg-gradient-to-r from-button-purple-start to-button-purple-end text-white font-semibold text-lg hover:from-button-purple-end hover:to-button-purple-start hover:shadow-lg transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95"
+            >
+              {loading ? loadingMessage : "Simulate"}
+            </button>
+            {loading && <p className="mt-4 text-electric-purple text-center">{loadingMessage}</p>}
+          </div>
 
-      {/* Next Day Update Panel */}
-      <div className="glass-morphism p-3 rounded-card shadow-elevation-1 mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-elevation-3 transition-all duration-300 ease-in-out">
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Update Simulated Students (Next Day)</h2>
-        <button
-          onClick={handleNextDay}
-          disabled={selectedStudents.length === 0 || loading}
-          className="px-6 py-2 rounded-button bg-emerald-success text-white font-semibold hover:bg-emerald-success-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1"
-        >
-          {loading ? (
-            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            `Advance Selected Students to Next Day (${selectedStudents.length})`
-          )}
-        </button>
-      </div>
-
-      {/* Simulated Students Table */}
-      <div className="glass-morphism p-3 rounded-card shadow-elevation-1 mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-elevation-3 transition-all duration-300 ease-in-out">
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Simulated Students</h2>
-        <div className="mb-4 flex space-x-2">
-          <button
-            onClick={handleDeleteSelected}
-            disabled={selectedStudents.length === 0 || loading}
-            className="px-4 py-2 rounded-button bg-rose-danger text-white font-semibold hover:bg-rose-danger-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1"
-          >
-            Delete Selected ({selectedStudents.length})
-          </button>
-          <button
-            onClick={handleDeleteAll}
-            disabled={simulatedStudents.length === 0 || loading}
-            className="px-4 py-2 rounded-button bg-rose-danger text-white font-semibold hover:bg-rose-danger-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1"
-          >
-            Delete All
-          </button>
-        </div>
-        <div className="overflow-x-auto overflow-y-auto relative rounded-card border border-transparent" style={{ maxHeight: '400px' }}>
-          <table className="w-full text-left table-auto table-compact">
-            <thead className="bg-charcoal-elevated sticky top-0 border-b border-transparent">
-              <tr>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tl-card">
-                  <input
-                    type="checkbox"
-                    onChange={(e) =>
-                      setSelectedStudents(
-                        e.target.checked
-                          ? simulatedStudents.map((s) => s.student_id) // Use student_id as key
-                             : []
-                          )
-                       }
-                       checked={selectedStudents.length === simulatedStudents.length && simulatedStudents.length > 0}
-                    disabled={simulatedStudents.length === 0}
-                    className="form-checkbox h-4 w-4 text-electric-purple transition duration-150 ease-in-out"
-                  />
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Student ID
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Days Old
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Age
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Gender
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Academic Program
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Year Level
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  GPA
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Active vs Reflective
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Sensing vs Intuitive
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
-                  Visual vs Verbal
-                </th>
-                <th className="px-2 py-1 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tr-card">
-                  Sequential vs Global
-                </th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-300 text-sm font-light">
-              {simulatedStudents.length === 0 ? (
-                <tr>
-                  <td colSpan="12" className="px-2 py-1 whitespace-nowrap text-center text-gray-500">
-                    No simulated students yet. Click {'Simulate'} to generate some.
-                  </td>
-                </tr>
+          {/* Next Day Update Panel */}
+          <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-emerald-success hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
+            <h2 className="text-xl font-bold mb-3 text-emerald-success">Update Simulated Students</h2>
+            <button
+              onClick={handleNextDay}
+              disabled={selectedStudents.length === 0 || loading}
+              className="w-full py-3 rounded-button bg-emerald-success text-white font-semibold text-lg hover:bg-emerald-success-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1 transform hover:-translate-y-0.5 active:scale-95"
+            >
+              {loading ? (
+                <svg className="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
               ) : (
-                simulatedStudents.map((student, index) => {
-                  const prevStudent = previousSimulatedStudents.current.find(
-                    (prev) => prev.student_id === student.student_id
-                  );
+                `Advance Selected Students to Next Day (${selectedStudents.length})`
+              )}
+            </button>
+          </div>
 
-                  const getHighlightClass = (currentValue, previousValue) => {
-                    return currentValue !== previousValue ? 'highlight-flash' : '';
-                  };
-
-                  return (
-                    <tr key={student.student_id} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated'} hover:bg-charcoal-elevated transition-all duration-200 ease-in-out`}>
-                      <td className="px-2 py-1 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedStudents.includes(student.student_id)}
-                          onChange={() => handleCheckboxChange(student.student_id)}
-                          className="form-checkbox h-4 w-4 text-electric-purple transition duration-150 ease-in-out"
-                        />
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.student_id}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.days_old}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.age}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.gender}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.academic_program}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.year_level}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                        {student.gpa}
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.active_vs_reflective, prevStudent?.active_vs_reflective)}`}>
-                        {student.active_vs_reflective}
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sensing_vs_intuitive, prevStudent?.sensing_vs_intuitive)}`}>
-                        {student.sensing_vs_intuitive}
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.visual_vs_verbal, prevStudent?.visual_vs_verbal)}`}>
-                        {student.visual_vs_verbal}
-                      </td>
-                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sequential_vs_global, prevStudent?.sequential_vs_global)}`}>
-                        {student.sequential_vs_global}
+          {/* Simulated Students Table */}
+          <div className="glass-morphism p-3 rounded-card shadow-xl flex-grow flex flex-col border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group transition-all duration-300 ease-out glow-on-hover">
+            <h2 className="text-xl font-bold mb-3 text-electric-purple">Simulated Students</h2>
+            <div className="mb-4 flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={handleDeleteSelected}
+                disabled={selectedStudents.length === 0 || loading}
+                className="px-6 py-3 rounded-button bg-rose-danger text-white font-semibold text-base hover:bg-rose-danger-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1 transform hover:-translate-y-0.5 active:scale-95"
+              >
+                Delete Selected ({selectedStudents.length})
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                disabled={simulatedStudents.length === 0 || loading}
+                className="px-6 py-3 rounded-button bg-rose-danger text-white font-semibold text-base hover:bg-rose-danger-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1 transform hover:-translate-y-0.5 active:scale-95"
+              >
+                Delete All
+              </button>
+            </div>
+            <div className="overflow-x-auto overflow-y-auto relative rounded-card border border-transparent flex-grow">
+              <table className="w-full text-left table-auto table-compact">
+                <thead className="bg-charcoal-elevated sticky top-0 border-b border-transparent">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tl-card">
+                      <input
+                        type="checkbox"
+                        onChange={(e) =>
+                          setSelectedStudents(
+                            e.target.checked
+                              ? simulatedStudents.map((s) => s.student_id)
+                              : []
+                          )
+                        }
+                        checked={selectedStudents.length === simulatedStudents.length && simulatedStudents.length > 0}
+                        disabled={simulatedStudents.length === 0}
+                        className="form-checkbox"
+                      />
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Student ID
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Days Old
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Age
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Gender
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Academic Program
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Year Level
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      GPA
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Active vs Reflective
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Sensing vs Intuitive
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      Visual vs Verbal
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-200 uppercase tracking-wider rounded-tr-card">
+                      Sequential vs Global
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-300 text-sm font-light">
+                  {simulatedStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="12" className="px-4 py-3 whitespace-nowrap text-center text-gray-500">
+                        No simulated students yet. Click {'Simulate'} to generate some.
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : (
+                    simulatedStudents.map((student, index) => {
+                      const prevStudent = previousSimulatedStudents.current.find(
+                        (prev) => prev.student_id === student.student_id
+                      );
+
+                      const getHighlightClass = (currentValue, previousValue) => {
+                        return currentValue !== previousValue ? 'highlight-flash' : '';
+                      };
+
+                      return (
+                        <tr key={student.student_id} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated/50'} hover:bg-charcoal-elevated/75 transition-all duration-200 ease-in-out`}>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedStudents.includes(student.student_id)}
+                              onChange={() => handleCheckboxChange(student.student_id)}
+                              className="form-checkbox"
+                            />
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.student_id}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.days_old}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.age}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.gender}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.academic_program}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.year_level}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                            {student.gpa}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.active_vs_reflective, prevStudent?.active_vs_reflective)}`}>
+                            {student.active_vs_reflective}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sensing_vs_intuitive, prevStudent?.sensing_vs_intuitive)}`}>
+                            {student.sensing_vs_intuitive}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.visual_vs_verbal, prevStudent?.visual_vs_verbal)}`}>
+                            {student.visual_vs_verbal}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sequential_vs_global, prevStudent?.sequential_vs_global)}`}>
+                            {student.sequential_vs_global}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
-      </div>
       {loading && (
-        <div className="fixed inset-0 bg-deep-space-navy bg-opacity-75 flex flex-col items-center justify-center z-50">
+        <div className="fixed inset-0 bg-dark-navy-start bg-opacity-75 flex flex-col items-center justify-center z-50">
           <svg className="animate-spin h-10 w-10 text-electric-purple mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="text-white">{loadingMessage || "Loading..."}</p>
+          <p className="text-white text-lg">{loadingMessage || "Loading..."}</p>
         </div>
       )}
     </>

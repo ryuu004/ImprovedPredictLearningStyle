@@ -7,3 +7,6 @@ python-dotenv
 imbalanced-learn
 scikit-optimize
 joblib
+xgboost
+tensorflow
+keras
