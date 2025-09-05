@@ -53,11 +53,7 @@ export default function ModelStatsPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-deep-space-navy text-white flex items-center justify-center p-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-4xl">
-        {[...Array(6)].map((_, index) => (
-          <div key={index} className="glass-morphism p-3 rounded-card shadow-xl h-48 animate-pulse bg-charcoal-elevated/50"></div>
-        ))}
-      </div>
+      <p>Loading model stats data...</p>
     </div>
   );
 

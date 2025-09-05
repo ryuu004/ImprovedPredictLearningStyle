@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import { usePrevious } from '../../lib/hooks';
 
 const useCountUp = (end, duration = 2000) => {
   const [count, setCount] = useState(0);
@@ -32,7 +33,9 @@ export default function LearningStyleMetric({ style, count, percentage }) {
     <div className="mb-2">
       <div className="flex justify-between items-center text-gray-300 text-xs mb-1">
         <span className="capitalize">{style}:</span>
-        <span className="font-semibold">{animatedCount} students ({animatedPercentage}%)</span>
+        <span className="font-semibold transition-colors duration-200">
+          {animatedCount} students ({animatedPercentage}%)
+        </span>
       </div>
       <div className="w-full bg-charcoal-elevated rounded-full h-1.5">
         <div

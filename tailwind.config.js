@@ -65,9 +65,16 @@ module.exports = {
         '50%': { opacity: 0.7 },
       },
     },
+    keyframes: {
+      spin: {
+        from: { transform: 'rotate(0deg)' },
+        to: { transform: 'rotate(360deg)' },
+      },
+    },
     animation: {
       'shine': 'shine 2s linear infinite',
       'pulse-light': 'pulse-light 1.5s ease-in-out infinite',
+      'spin': 'spin 1s linear infinite',
     },
    },
      darkMode: 'class',

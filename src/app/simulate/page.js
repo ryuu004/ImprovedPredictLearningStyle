@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function SimulatePage() {
   const [numStudents, setNumStudents] = useState(1);
@@ -10,10 +10,16 @@ export default function SimulatePage() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [error, setError] = useState(null);
+  const previousSimulatedStudents = useRef([]);
 
   useEffect(() => {
     fetchSimulatedStudents();
   }, []);
+
+  useEffect(() => {
+    // Store the current students as previous ones for the next render
+    previousSimulatedStudents.current = simulatedStudents;
+  }, [simulatedStudents]);
 
   const fetchSimulatedStudents = async () => {
     try {
@@ -63,7 +69,7 @@ export default function SimulatePage() {
     if (selectedStudents.length === 0) return;
 
     setLoading(true);
-    setLoadingMessage("Advancing selected students to next day...");
+    setLoadingMessage("");
     setError(null);
     try {
       const response = await fetch('/api/update-days-old', {
@@ -146,11 +152,7 @@ export default function SimulatePage() {
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-deep-space-navy text-white flex items-center justify-center">
-      <p>Loading simulation data...</p>
-    </div>
-  );
+
 
   if (error) return (
     <div className="min-h-screen bg-deep-space-navy text-white flex items-center justify-center">
@@ -159,7 +161,8 @@ export default function SimulatePage() {
   );
 
   return (
-    <div className="bg-deep-space-navy text-white p-2 h-screen flex flex-col overflow-hidden">
+    <>
+      <div className="bg-deep-space-navy text-white p-2 h-screen flex flex-col overflow-hidden">
       <h1 className="text-3xl font-bold mb-6 text-electric-purple">Simulate Student Data</h1>
 
       {/* Simulation Panel */}
@@ -205,7 +208,14 @@ export default function SimulatePage() {
           disabled={selectedStudents.length === 0 || loading}
           className="px-6 py-2 rounded-button bg-emerald-success text-white font-semibold hover:bg-emerald-success-dark disabled:opacity-50 transition-colors duration-300 shadow-elevation-1"
         >
-          Advance Selected Students to Next Day ({selectedStudents.length})
+          {loading ? (
+            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            `Advance Selected Students to Next Day (${selectedStudents.length})`
+          )}
         </button>
       </div>
 
@@ -286,60 +296,80 @@ export default function SimulatePage() {
               {simulatedStudents.length === 0 ? (
                 <tr>
                   <td colSpan="12" className="px-2 py-1 whitespace-nowrap text-center text-gray-500">
-                    No simulated students yet. Click 'Simulate' to generate some.
+                    No simulated students yet. Click {'Simulate'} to generate some.
                   </td>
                 </tr>
               ) : (
-                simulatedStudents.map((student, index) => (
-                  <tr key={student.student_id} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated'} hover:bg-charcoal-elevated transition-all duration-200 ease-in-out`}>
-                    <td className="px-2 py-1 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedStudents.includes(student.student_id)}
-                        onChange={() => handleCheckboxChange(student.student_id)}
-                        className="form-checkbox h-4 w-4 text-electric-purple transition duration-150 ease-in-out"
-                      />
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.student_id}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.days_old}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.age}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.gender}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.academic_program}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.year_level}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
-                      {student.gpa}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize">
-                      {student.active_vs_reflective}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize">
-                      {student.sensing_vs_intuitive}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize">
-                      {student.visual_vs_verbal}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize">
-                      {student.sequential_vs_global}
-                    </td>
-                  </tr>
-                ))
+                simulatedStudents.map((student, index) => {
+                  const prevStudent = previousSimulatedStudents.current.find(
+                    (prev) => prev.student_id === student.student_id
+                  );
+
+                  const getHighlightClass = (currentValue, previousValue) => {
+                    return currentValue !== previousValue ? 'highlight-flash' : '';
+                  };
+
+                  return (
+                    <tr key={student.student_id} className={`border-b border-transparent ${index % 2 === 0 ? 'bg-charcoal-elevated' : 'bg-charcoal-elevated'} hover:bg-charcoal-elevated transition-all duration-200 ease-in-out`}>
+                      <td className="px-2 py-1 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudents.includes(student.student_id)}
+                          onChange={() => handleCheckboxChange(student.student_id)}
+                          className="form-checkbox h-4 w-4 text-electric-purple transition duration-150 ease-in-out"
+                        />
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.student_id}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.days_old}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.age}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.gender}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.academic_program}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.year_level}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                        {student.gpa}
+                      </td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.active_vs_reflective, prevStudent?.active_vs_reflective)}`}>
+                        {student.active_vs_reflective}
+                      </td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sensing_vs_intuitive, prevStudent?.sensing_vs_intuitive)}`}>
+                        {student.sensing_vs_intuitive}
+                      </td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.visual_vs_verbal, prevStudent?.visual_vs_verbal)}`}>
+                        {student.visual_vs_verbal}
+                      </td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 capitalize ${getHighlightClass(student.sequential_vs_global, prevStudent?.sequential_vs_global)}`}>
+                        {student.sequential_vs_global}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
-    </div>
+      </div>
+      {loading && (
+        <div className="fixed inset-0 bg-deep-space-navy bg-opacity-75 flex flex-col items-center justify-center z-50">
+          <svg className="animate-spin h-10 w-10 text-electric-purple mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-white">{loadingMessage || "Loading..."}</p>
+        </div>
+      )}
+    </>
   );
 }
