@@ -123,10 +123,10 @@ async def simulate_students_endpoint(request: SimulateRequest):
     simulated_raw_data = generate_realistic_student_data(request.num_students, request.days_old)
 
     # Define the exact list of features the preprocessor expects, in the correct order.
-    all_expected_preprocessor_cols = [f.upper() for f in numerical_static_features] + \
+    all_expected_preprocessor_cols = ['STUDENT_ID', 'DAYS_OLD'] + \
+                                     [f.upper() for f in numerical_static_features] + \
                                      [f.upper() for f in categorical_features] + \
-                                     [f.upper() for f in boolean_cols] + \
-                                     [f.upper() for f in dynamic_features]
+                                     [f.upper() for f in boolean_cols]
 
     for student_data in simulated_raw_data:
         input_df = pd.DataFrame([student_data]).reindex(columns=all_expected_preprocessor_cols, fill_value=np.nan)
@@ -225,10 +225,11 @@ async def update_days_old_endpoint(request: UpdateDaysOldRequest):
     simulated_students_collection = db["simulated_students"]
     updated_students_list = []
 
-    all_expected_preprocessor_cols = [f.upper() for f in numerical_static_features] + \
+    all_expected_preprocessor_cols = ['STUDENT_ID', 'DAYS_OLD'] + \
+                                     [f.upper() for f in numerical_static_features] + \
                                      [f.upper() for f in categorical_features] + \
                                      [f.upper() for f in boolean_cols] + \
-                                     [f.upper() for f in dynamic_features]
+                                     ['TOTAL_TIME_SPENT', 'ENGAGEMENT_PER_DAY', 'QUIZ_ACCURACY_SCORE', 'COMPLETION_RATE']
 
     for student_id in request.student_ids:
         existing_student = simulated_students_collection.find_one({"student_id": student_id})

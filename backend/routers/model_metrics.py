@@ -3,14 +3,14 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 from backend.dependencies import models, target_labels, db, model_performance_metrics, feature_importances_dict # Removed unused imports
 import pandas as pd
 import numpy as np
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 router = APIRouter()
 
 # Pydantic models for response
 class MetricStats(BaseModel):
-    training_accuracy: float
+    training_accuracy: Optional[float]
     test_accuracy: float
     precision: float
     recall: float
@@ -27,6 +27,7 @@ class MetricStats(BaseModel):
     fold_f1_scores: List[float]
     confusion_matrices_per_fold: List[List[List[int]]]
     class_distribution: Dict[str, int]
+    per_class_f1_scores: Optional[List[float]] # Add per-class f1 scores
 
 class ConfusionMatrixData(BaseModel):
     confusion_matrix: List[List[int]]
@@ -57,7 +58,7 @@ async def get_model_metrics(model_type: str = Query("random_forest", description
     model_stats_to_return = {}
     for target, stats in metrics_raw.items():
         model_stats_to_return[target] = MetricStats(
-            training_accuracy=stats["training_accuracy"],
+            training_accuracy=None if isinstance(stats["training_accuracy"], str) else stats["training_accuracy"],
             test_accuracy=stats["test_accuracy"],
             precision=stats["precision"],
             recall=stats["recall"],
@@ -73,7 +74,8 @@ async def get_model_metrics(model_type: str = Query("random_forest", description
             fold_recalls=stats["fold_recalls"],
             fold_f1_scores=stats["fold_f1_scores"],
             confusion_matrices_per_fold=stats.get("confusion_matrices_per_fold", []), # Populate new field
-            class_distribution=stats.get("class_distribution", {}) # Populate new field
+            class_distribution=stats.get("class_distribution", {}), # Populate new field
+            per_class_f1_scores=stats.get("f1_per_class", None) # Populate new field
         )
  
     confusion_matrices_to_return = {}

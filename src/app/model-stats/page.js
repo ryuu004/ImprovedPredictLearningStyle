@@ -328,37 +328,48 @@ export default function ModelStatsPage() {
       </div>
 
       {/* Feature Importance Visualization (Using Bar Chart) */}
-      <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
-        <h2 className="text-xl font-bold mb-3 text-electric-purple">Feature Importance (Overall)</h2>
-        <div className="h-[350px]"> {/* Explicit height for the chart container */}
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={Object.entries(featureImportances[Object.keys(featureImportances)[0]]) // Use the first key of featureImportances
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10) // Display top 10 features
-                .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: parseFloat(formatPercentage(value, 2)) || 0 }))}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
-              <XAxis type="number" stroke="#9CA3AF" />
-              <YAxis type="category" dataKey="name" stroke="#9CA3AF" width={180} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
-                labelStyle={{ color: '#9CA3AF' }}
-              />
-              <Legend wrapperStyle={{ color: '#E5E7EB' }} />
-              <defs>
-                <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#8B5CF6" />
-                  <stop offset="100%" stopColor="#6C2BD9" />
-                </linearGradient>
-              </defs>
-              <Bar dataKey="value" fill="url(#barGradient)" />
-            </BarChart>
-          </ResponsiveContainer>
+      {featureImportances && Object.keys(featureImportances).length > 0 ? (
+        <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
+          <h2 className="text-xl font-bold mb-3 text-electric-purple">Feature Importance</h2>
+          {Object.entries(featureImportances).map(([target, importances]) => (
+            <div key={target} className="mb-4 charcoal-elevated p-3 rounded-card shadow-lg border border-transparent hover:shadow-xl transition-all duration-300 ease-in-out group relative overflow-hidden transition-all duration-300 ease-out glow-on-hover" onMouseDown={rippleEffect}>
+              <h3 className="text-md font-semibold mb-2 text-gray-300">{target.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h3>
+              <div className="h-[350px]"> {/* Explicit height for the chart container */}
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={Object.entries(importances) // Use 'importances' for the current target
+                      .sort(([, a], [, b]) => b - a)
+                      .slice(0, 10) // Display top 10 features
+                      .map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), value: parseFloat(formatPercentage(value, 2)) || 0 }))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2D333B" />
+                    <XAxis type="number" stroke="#9CA3AF" />
+                    <YAxis type="category" dataKey="name" stroke="#9CA3AF" width={180} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#161B22', borderColor: '#2D333B', color: '#E5E7EB' }}
+                      labelStyle={{ color: '#9CA3AF' }}
+                    />
+                    <Legend wrapperStyle={{ color: '#E5E7EB' }} />
+                    <defs>
+                      <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#8B5CF6" />
+                        <stop offset="100%" stopColor="#6C2BD9" />
+                      </linearGradient>
+                    </defs>
+                    <Bar dataKey="value" fill="url(#barGradient)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      ) : (
+        <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
+          No Feature Importance data available.
+        </div>
+      )}
 
       {/* Confusion Matrix Heatmap */}
       <div className="glass-morphism p-3 rounded-card shadow-xl mb-3 flex-shrink-0 border border-transparent hover:border-electric-purple hover:shadow-2xl transition-all duration-300 ease-in-out backdrop-filter backdrop-blur-md bg-opacity-10 bg-charcoal-elevated relative overflow-hidden group" onMouseDown={handleCardClick}>
