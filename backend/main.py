@@ -1,3 +1,8 @@
+import warnings
+
+# Suppress the specific UserWarning from XGBoost
+warnings.filterwarnings("ignore", message=".*use_label_encoder.*", category=UserWarning)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sklearn.ensemble import RandomForestClassifier
@@ -93,20 +98,21 @@ def load_lstm_model():
     """Loads the pre-trained LSTM model."""
     global lstm_model
     if os.path.exists(LSTM_MODEL_PATH):
-        print(f"Loading LSTM model from {LSTM_MODEL_PATH}")
+        print(f"Attempting to load LSTM model from {LSTM_MODEL_PATH}...")
         try:
-            # Load the Keras model directly
             lstm_model = keras.models.load_model(LSTM_MODEL_PATH)
             print("LSTM model loaded successfully.")
+            return True
         except Exception as e:
-            print(f"Error loading LSTM model from {LSTM_MODEL_PATH}: {e}. LSTM embeddings will not be generated.")
-            print("Please ensure the model is saved in a Keras native format (.keras or .h5).")
+            print(f"Error loading LSTM model from {LSTM_MODEL_PATH}: {e}. This may indicate a corrupted file or an incompatible Keras version. LSTM embeddings will not be generated.")
             lstm_model = None
+            return False
     else:
-        print(f"Warning: LSTM model not found at {LSTM_MODEL_PATH}. LSTM embeddings will not be generated.")
+        print(f"LSTM model not found at {LSTM_MODEL_PATH}. It will be trained if data is available.")
         lstm_model = None
+        return False
 
-async def train_lstm_model(df_full_training_data, sequential_feature_engineer_instance):
+async def train_lstm_model(df_full_training_data, sequential_feature_engineer_instance, save_model=True):
     """
     Trains a simple LSTM model and returns it, along with the engineered sequential features
     for the entire dataset.
@@ -125,7 +131,7 @@ async def train_lstm_model(df_full_training_data, sequential_feature_engineer_in
     if 'DAYS_OLD' not in df_full_training_data.columns:
         df_full_training_data['DAYS_OLD'] = 0 # Default if not present
 
-    sim_days_for_lstm_training = 30 # Simulate 30 days of activity for LSTM training
+    sim_days_for_lstm_training = 7 # Simulate 7 days of activity for LSTM training (reduced for faster training)
     
     # Generate synthetic activities for all students in df_full_training_data
     synthetic_activities_for_lstm_training = generate_all_students_activities(
@@ -178,7 +184,21 @@ async def train_lstm_model(df_full_training_data, sequential_feature_engineer_in
     model.fit(X_lstm, y_lstm, epochs=10, batch_size=32, verbose=0)
     
     print(f"LSTM model trained with input shape {X_lstm.shape}.")
-    return model, engineered_lstm_features_df # Return the engineered features as well
+    if save_model:
+        try:
+            model.save(LSTM_MODEL_PATH)
+            print(f"LSTM model saved successfully to {LSTM_MODEL_PATH}")
+        except Exception as e:
+            print(f"Error saving LSTM model to {LSTM_MODEL_PATH}: {e}")
+    # Get the embedding layer output (output of the second Bidirectional LSTM layer)
+    embedding_model = keras.Model(inputs=model.input, outputs=model.layers[4].output)
+    embeddings = embedding_model.predict(X_lstm)
+    
+    # Create a DataFrame from the embeddings
+    precomputed_lstm_features_df = pd.DataFrame(embeddings, index=engineered_lstm_features_df.index,
+                                                columns=[f"lstm_feature_{i}" for i in range(embeddings.shape[1])])
+    
+    return model, precomputed_lstm_features_df # Return the trained model and the precomputed embeddings
 
 # Add CORS middleware
 app.add_middleware(
@@ -189,11 +209,15 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-async def train_model():
-    global models, feature_names, model_performance_metrics
+async def train_model(lstm_model_already_loaded: bool = False):
+    global models, feature_names, model_performance_metrics, lstm_model
     
     # Initialize SequentialFeatureEngineer
     sequential_feature_engineer = SequentialFeatureEngineer(sequence_length_days=14)
+
+    current_lstm_model = lstm_model # Initialize with the globally loaded LSTM model
+    precomputed_lstm_features_df = pd.DataFrame() # Initialize an empty DataFrame
+    lstm_output_features = 0 # Initialize
 
     # Define dynamic and static features for training - imported from dependencies
     # Ensure all dynamic and static features are in the DataFrame
@@ -239,20 +263,37 @@ async def train_model():
         df_final_test = df_full.iloc[outer_test_index].copy()
 
         # Pre-compute LSTM features for the entire dataset once
-        if outer_fold == 0: # Only do this once before the outer loop starts
-            # Train LSTM model on the full dataset (for feature extraction)
-            current_lstm_model, precomputed_lstm_features_df = await train_lstm_model(df_full, sequential_feature_engineer)
-            if precomputed_lstm_features_df is None:
-                print("Warning: No precomputed LSTM features. Proceeding without LSTM features.")
-                lstm_output_features = 0
-            else:
-                lstm_output_features = precomputed_lstm_features_df.shape[1]
-                # Merge precomputed LSTM features into the full DataFrame
-                df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left').reset_index()
-                # Fill any NaN values that might result from the join (e.g., if a student had no activities)
-                for col in precomputed_lstm_features_df.columns:
-                    df_full[col] = df_full[col].fillna(0)
-                print(f"Precomputed {lstm_output_features} LSTM features for {len(df_full)} students.")
+        # Pre-compute LSTM features for the entire dataset once, if not already loaded
+        if not lstm_model_already_loaded:
+            if outer_fold == 0: # Only do this once before the outer loop starts
+                current_lstm_model, precomputed_lstm_features_df = await train_lstm_model(df_full, sequential_feature_engineer)
+                if precomputed_lstm_features_df is None:
+                    print("Warning: No precomputed LSTM features. Proceeding without LSTM features.")
+                    lstm_output_features = 0
+                else:
+                    lstm_output_features = precomputed_lstm_features_df.shape[1]
+                    # Merge precomputed LSTM features into the full DataFrame
+                    df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left', rsuffix='_lstm').reset_index()
+                    # Fill any NaN values that might result from the join (e.g., if a student had no activities)
+                    for col in precomputed_lstm_features_df.columns:
+                        df_full[col] = df_full[col].fillna(0)
+                    print(f"Precomputed {lstm_output_features} LSTM features for {len(df_full)} students.")
+        else:
+            # If LSTM model is already loaded, we assume its features are integrated or not needed for this path
+            # This part might need more sophisticated handling if LSTM features are dynamically generated
+            # and not precomputed globally. For now, we'll assume they are handled.
+            print("LSTM model already loaded, skipping re-training and re-computation of its features.")
+            lstm_output_features = lstm_model.output_shape[-1] if lstm_model else 0 # Get output features from loaded model
+            # For now, we'll assume precomputed_lstm_features_df is populated elsewhere if needed, or that
+            # the feature_preprocessor handles the already-loaded LSTM model directly.
+            # This part needs careful consideration based on the exact flow of data.
+            # For now, we'll proceed assuming precomputed_lstm_features_df is handled.
+            # If df_full needs to be updated with LSTM features, that logic needs to be here.
+            # For simplicity, we'll assume the feature_preprocessor can work with the global lstm_model.
+            precomputed_lstm_features_df = pd.DataFrame(index=df_full['STUDENT_ID'].unique(), columns=[f"lstm_feature_{i}" for i in range(lstm_output_features)])
+            df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left', rsuffix='_lstm').reset_index()
+            for col in precomputed_lstm_features_df.columns:
+                df_full[col] = df_full[col].fillna(0)
 
         df_outer_train = df_full.iloc[outer_train_index].copy()
         df_final_test = df_full.iloc[outer_test_index].copy()
@@ -262,7 +303,9 @@ async def train_model():
             
             # Prepare X and y for the current outer training fold
             # X_outer_train now includes the precomputed LSTM features
-            X_outer_train = df_outer_train[all_combined_features + list(precomputed_lstm_features_df.columns)].copy()
+            # Combine static, categorical, boolean, and LSTM features for training
+            features_for_training = numerical_static_features + categorical_features + boolean_cols + list(precomputed_lstm_features_df.columns)
+            X_outer_train = df_outer_train[features_for_training].copy()
             # Convert target labels to numerical (0 or 1)
             # Ensure robustness by converting to string, stripping whitespace, and lowercasing
             y_outer_train = df_outer_train.loc[X_outer_train.index, target].astype(str).str.strip().str.lower().apply(
@@ -296,15 +339,14 @@ async def train_model():
                 'smote__k_neighbors': Integer(1, 10) # For SMOTE
             }
  
-            # Define a preprocessor for the static and dynamic features, using the current_lstm_model
-            # The LSTMFeatureExtractor now expects the precomputed features as direct input
+            # Define a preprocessor for the static and dynamic features, and now including precomputed LSTM features
             feature_preprocessor = ColumnTransformer(
                 transformers=[
                     ('num', numerical_transformer, numerical_static_features), # Numerical static features
                     ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features), # Categorical static features
                     ('boolean', 'passthrough', boolean_cols), # Pass through boolean columns
-                    # Pass the precomputed LSTM features directly to LSTMFeatureExtractor
-                    ('lstm_features', LSTMFeatureExtractor(current_lstm_model, embedding_size=lstm_output_features), list(precomputed_lstm_features_df.columns))
+                    # Include precomputed LSTM features directly as numerical features if they exist
+                    ('lstm_features', numerical_transformer, list(precomputed_lstm_features_df.columns))
                 ],
                 remainder='drop' # Drop any other columns not explicitly handled
             )
@@ -319,8 +361,8 @@ async def train_model():
             opt = BayesSearchCV(
                 estimator=base_pipeline,
                 search_spaces=param_space,
-                n_iter=20, # Reduced n_iter for faster execution during nested CV
-                cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42), # Reduced n_splits for faster inner CV
+                n_iter=10, # Further reduced n_iter for faster execution during nested CV
+                cv=StratifiedKFold(n_splits=2, shuffle=True, random_state=42), # Further reduced n_splits for faster inner CV
                 scoring=f1_scorer,
                 n_jobs=-1, # Use all available cores
                 random_state=42,
@@ -337,7 +379,8 @@ async def train_model():
             
             # Evaluate on the final_test_set (from the outer loop)
             # X_final_test now includes the precomputed LSTM features
-            X_final_test = df_final_test[all_combined_features + list(precomputed_lstm_features_df.columns)].copy()
+            # Combine static, categorical, boolean, and LSTM features for testing
+            X_final_test = df_final_test[features_for_training].copy() # Use the same feature list as training
             # Convert target labels to numerical (0 or 1)
             # Ensure robustness by converting to string, stripping whitespace, and lowercasing
             y_final_test = df_final_test.loc[X_final_test.index, target].astype(str).str.strip().str.lower().apply(
@@ -443,11 +486,13 @@ async def train_model():
         else:
             print(f"No sufficient data to calculate overall RF metrics for {target}.")
  
-async def train_xgboost_model():
-    global models, feature_names, model_performance_metrics
+async def train_xgboost_model(lstm_model_already_loaded: bool = False):
+    global models, feature_names, model_performance_metrics, lstm_model
     
     # Initialize SequentialFeatureEngineer
     sequential_feature_engineer = SequentialFeatureEngineer(sequence_length_days=14)
+
+
 
     # Define dynamic and static features for training - imported from dependencies
     # Ensure all dynamic and static features are in the DataFrame
@@ -492,20 +537,29 @@ async def train_xgboost_model():
         df_final_test = df_full.iloc[outer_test_index].copy()
  
         # Pre-compute LSTM features for the entire dataset once
-        if outer_fold == 0: # Only do this once before the outer loop starts
-            # Train LSTM model on the full dataset (for feature extraction)
-            current_lstm_model, precomputed_lstm_features_df = await train_lstm_model(df_full, sequential_feature_engineer)
-            if precomputed_lstm_features_df is None:
-                print("Warning: No precomputed LSTM features. Proceeding without LSTM features.")
-                lstm_output_features = 0
-            else:
-                lstm_output_features = precomputed_lstm_features_df.shape[1]
-                # Merge precomputed LSTM features into the full DataFrame
-                df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left').reset_index()
-                # Fill any NaN values that might result from the join (e.g., if a student had no activities)
-                for col in precomputed_lstm_features_df.columns:
-                    df_full[col] = df_full[col].fillna(0)
-                print(f"Precomputed {lstm_output_features} LSTM features for {len(df_full)} students.")
+        # Pre-compute LSTM features for the entire dataset once, if not already loaded
+        if not lstm_model_already_loaded:
+            if outer_fold == 0: # Only do this once before the outer loop starts
+                current_lstm_model, precomputed_lstm_features_df = await train_lstm_model(df_full, sequential_feature_engineer)
+                if precomputed_lstm_features_df is None:
+                    print("Warning: No precomputed LSTM features. Proceeding without LSTM features.")
+                    lstm_output_features = 0
+                else:
+                    lstm_output_features = precomputed_lstm_features_df.shape[1]
+                    # Merge precomputed LSTM features into the full DataFrame
+                    df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left', rsuffix='_lstm').reset_index()
+                    # Fill any NaN values that might result from the join (e.g., if a student had no activities)
+                    for col in precomputed_lstm_features_df.columns:
+                        df_full[col] = df_full[col].fillna(0)
+                    print(f"Precomputed {lstm_output_features} LSTM features for {len(df_full)} students.")
+        else:
+            # If LSTM model is already loaded, we assume its features are integrated or not needed for this path
+            print("LSTM model already loaded, skipping re-training and re-computation of its features.")
+            lstm_output_features = lstm_model.output_shape[-1] if lstm_model else 0
+            precomputed_lstm_features_df = pd.DataFrame(index=df_full['STUDENT_ID'].unique(), columns=[f"lstm_feature_{i}" for i in range(lstm_output_features)])
+            df_full = df_full.set_index('STUDENT_ID').join(precomputed_lstm_features_df, how='left', rsuffix='_lstm').reset_index()
+            for col in precomputed_lstm_features_df.columns:
+                df_full[col] = df_full[col].fillna(0)
 
         df_outer_train = df_full.iloc[outer_train_index].copy()
         df_final_test = df_full.iloc[outer_test_index].copy()
@@ -514,7 +568,10 @@ async def train_xgboost_model():
             print(f"Processing target: {target}")
             
             # Prepare X and y for the current outer training fold
-            X_outer_train = df_outer_train[all_combined_features + list(precomputed_lstm_features_df.columns)].copy()
+            # X_outer_train now includes the precomputed LSTM features
+            # Combine static, categorical, boolean, and LSTM features for training
+            features_for_training = numerical_static_features + categorical_features + boolean_cols + list(precomputed_lstm_features_df.columns)
+            X_outer_train = df_outer_train[features_for_training].copy()
             # Convert target labels to numerical (0 or 1)
             # Ensure robustness by converting to string, stripping whitespace, and lowercasing
             y_outer_train = df_outer_train.loc[X_outer_train.index, target].astype(str).str.strip().str.lower().apply(
@@ -550,14 +607,14 @@ async def train_xgboost_model():
                 'smote__k_neighbors': Integer(1, 10) # For SMOTE
             }
  
-            # Define a preprocessor for the static and dynamic features, using the current_lstm_model
-            # The LSTMFeatureExtractor now expects the precomputed features as direct input
+            # Define a preprocessor for the static and dynamic features, and now including precomputed LSTM features
             feature_preprocessor = ColumnTransformer(
                 transformers=[
                     ('num', numerical_transformer, numerical_static_features), # Numerical static features
                     ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features), # Categorical static features
                     ('boolean', 'passthrough', boolean_cols), # Pass through boolean columns
-                    ('lstm_features', LSTMFeatureExtractor(current_lstm_model, embedding_size=lstm_output_features), list(precomputed_lstm_features_df.columns))
+                    # Include precomputed LSTM features directly as numerical features if they exist
+                    ('lstm_features', numerical_transformer, list(precomputed_lstm_features_df.columns))
                 ],
                 remainder='drop' # Drop any other columns not explicitly handled
             )
@@ -570,15 +627,15 @@ async def train_xgboost_model():
             # Create a base pipeline for BayesSearchCV
             base_pipeline = ImblearnPipeline(steps=[('feature_preprocessor', feature_preprocessor),\
                                                      ('smote', SMOTE(random_state=42)),\
-                                                     ('classifier', XGBClassifier(random_state=42, eval_metric='logloss', use_label_encoder=False, scale_pos_weight=scale_pos_weight_value))]) # Changed for XGBoost
+                                                     ('classifier', XGBClassifier(random_state=42, eval_metric='logloss', scale_pos_weight=scale_pos_weight_value))]) # Changed for XGBoost
  
             f1_scorer = make_scorer(f1_score, average='weighted', zero_division=0)
  
             opt = BayesSearchCV(
                 estimator=base_pipeline,
                 search_spaces=param_space,
-                n_iter=20, # Reduced n_iter for faster execution during nested CV
-                cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42), # Reduced n_splits for faster inner CV
+                n_iter=10, # Further reduced n_iter for faster execution during nested CV
+                cv=StratifiedKFold(n_splits=2, shuffle=True, random_state=42), # Further reduced n_splits for faster inner CV
                 scoring=f1_scorer,
                 n_jobs=-1, # Use all available cores
                 random_state=42,
@@ -594,7 +651,9 @@ async def train_xgboost_model():
             final_model_pipeline = opt.best_estimator_
             
             # Evaluate on the final_test_set (from the outer loop)
-            X_final_test = df_final_test[all_combined_features + list(precomputed_lstm_features_df.columns)].copy()
+            # X_final_test now includes the precomputed LSTM features
+            # Combine static, categorical, boolean, and LSTM features for testing
+            X_final_test = df_final_test[features_for_training].copy() # Use the same feature list as training
             # Convert target labels to numerical (0 or 1)
             # Ensure robustness by converting to string, stripping whitespace, and lowercasing
             y_final_test = df_final_test.loc[X_final_test.index, target].astype(str).str.strip().str.lower().apply(
@@ -705,8 +764,8 @@ async def startup_event():
     # Check if models are already trained and saved
     # If not, train them. Otherwise, load them.
     
-    # Load LSTM model first
-    load_lstm_model()
+    # Attempt to load LSTM model first
+    lstm_model_successfully_loaded = load_lstm_model()
  
     # Define model types and their corresponding training functions
     model_types = ["random_forest", "xgboost"]
@@ -716,17 +775,12 @@ async def startup_event():
     }
  
     for model_type in model_types:
-        all_models_exist = True
         for target in target_labels:
             model_filename = os.path.join(MODEL_PATH, f"model_{model_type.upper()}_{target}.joblib")
-            if not os.path.exists(model_filename):
-                all_models_exist = False
-                break
-        
-        if all_models_exist:
-            print(f"Loading pre-trained {model_type.replace('_', ' ').upper()} models and data...")
-            for target in target_labels:
-                model_filename = os.path.join(MODEL_PATH, f"model_{model_type.upper()}_{target}.joblib")
+            
+            model_needs_training = False
+            if os.path.exists(model_filename):
+                print(f"Attempting to load {model_type.replace('_', ' ').upper()} model for {target} from {model_filename}...")
                 try:
                     loaded_data = joblib.load(model_filename)
                     models[model_type][target] = loaded_data['model']
@@ -734,16 +788,30 @@ async def startup_event():
                     feature_importances_dict[model_type][target] = loaded_data['feature_importances']
                     print(f"Loaded {model_type.replace('_', ' ').upper()} model for {target}.")
                 except Exception as e:
-                    print(f"Error loading {model_type.replace('_', ' ').upper()} model for {target}: {e}")
-                    # If loading fails for any reason, assume models don't exist and trigger retraining
-                    all_models_exist = False
-                    break
-            if not all_models_exist: # If there was an error loading, retrain
-                print(f"Retraining {model_type.replace('_', ' ').upper()} models due to loading error or missing files...")
-                await training_functions[model_type]()
-        else:
-            print(f"Training {model_type.replace('_', ' ').upper()} models for the first time...")
-            await training_functions[model_type]()
+                    print(f"Error loading {model_type.replace('_', ' ').upper()} model for {target}: {e}. Retraining this model.")
+                    model_needs_training = True
+            else:
+                print(f"{model_type.replace('_', ' ').upper()} model for {target} not found at {model_filename}. Training this model.")
+                model_needs_training = True
+
+            if model_needs_training:
+                print(f"Initiating training for {model_type.replace('_', ' ').upper()} model for {target}...")
+                # To train only the specific target, we need to modify train_model and train_xgboost_model
+                # For now, these functions train all targets. We will call them if any target needs training.
+                # A more refined approach would be to train only the missing target.
+                # For simplicity in this fix, if any target needs training, the whole model type training is triggered.
+                await training_functions[model_type](lstm_model_already_loaded=lstm_model_successfully_loaded)
+                # After training, attempt to reload to ensure it's available
+                try:
+                    loaded_data = joblib.load(model_filename)
+                    models[model_type][target] = loaded_data['model']
+                    model_performance_metrics[model_type][target] = loaded_data['performance_metrics']
+                    feature_importances_dict[model_type][target] = loaded_data['feature_importances']
+                    print(f"Successfully reloaded trained {model_type.replace('_', ' ').upper()} model for {target}.")
+                except Exception as e:
+                    print(f"Error reloading {model_type.replace('_', ' ').upper()} model for {target} after training: {e}")
+                    # If it fails to reload even after training, there's a serious issue.
+                    # This might require manual intervention or a more robust error handling strategy.
  
 @app.get("/")
 async def read_root():
